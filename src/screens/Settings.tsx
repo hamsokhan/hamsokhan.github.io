@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
-import { API_URL, type UsageTotals } from '../ai/client';
+import { getAiSettings, MOCK, type UsageTotals } from '../ai/client';
+import { AiSettingsCard } from '../components/AiSettings';
 import { ErrorBox, Icon, IconButton, Sheet, useGoBack, useOverlay, useToast } from '../components/ui';
 import { exportBackup, mergeBackup, parseBackupFile, type Backup, type MergePlan } from '../lib/backup';
 import { getMeta } from '../lib/db';
@@ -22,6 +23,7 @@ export default function Settings() {
   const about = useOverlay('about');
   const [pendingImport, setPendingImport] = useState<{ backup: Backup; plan: MergePlan } | { error: string } | null>(null);
   const usage = useQuery(() => getMeta<UsageTotals>('usage'), []);
+  const ai = useQuery(getAiSettings, []);
   const scaleIdx = Math.max(0, FONT_SCALES.indexOf(settings.fontScale as (typeof FONT_SCALES)[number]));
 
   const doExport = async () => {
@@ -102,6 +104,8 @@ export default function Settings() {
           </div>
         </section>
 
+        <AiSettingsCard />
+
         <section className="bg-card border border-line rounded-3xl p-6 mb-6" aria-labelledby="data-title">
           <h2 id="data-title" className="text-xs font-bold text-muted mb-4 flex items-center gap-2"><Icon name="database" />داده‌ها و ذخیره‌سازی</h2>
           <p className="text-xs text-muted leading-relaxed mb-6">
@@ -158,16 +162,16 @@ export default function Settings() {
 
       <Sheet open={about.open} onClose={about.hide} title="دربارهٔ هوشواره">
         <div className="text-sm leading-relaxed space-y-3">
-          <p>هوشواره از راه سرور هم‌سخن به مدل Claude شرکت Anthropic وصل می‌شود. فقط وقتی دکمهٔ توضیح، پرسش یا ثبت برداشت را بزنید، متن بیت و شعر و نوشتهٔ شما فرستاده می‌شود.</p>
-          <p className="text-muted">وضعیت اتصال: {API_URL ? 'نشانی سرور تنظیم شده است' : 'هنوز به سرور وصل نشده است؛ توضیح تازه ساخته نمی‌شود.'}</p>
+          <p>هوشواره با کلید خودتان مستقیم به مدل Claude شرکت Anthropic وصل می‌شود؛ سرور واسطه‌ای در کار نیست. فقط وقتی دکمهٔ توضیح، پرسش یا ثبت برداشت را بزنید، متن بیت و شعر و نوشتهٔ شما فرستاده می‌شود.</p>
+          <p className="text-muted">وضعیت: {MOCK ? 'حالت آزمایشی (پاسخ‌های نمونه)' : ai.status === 'ready' && ai.value.apiKey ? `کلید ذخیره شده است؛ مدل ${ai.value.model}` : 'کلیدی وارد نشده؛ توضیح تازه ساخته نمی‌شود.'}</p>
           <p className="text-muted">
             مصرف ثبت‌شده در این دستگاه
             {usage.status === 'ready' && usage.value ? (
-              <> از {faAgo(usage.value.since)}: {faNum(usage.value.requests)} درخواست ({faNum(usage.value.cached)} مورد از حافظهٔ سرور)، {faNum(usage.value.inputTokens.toLocaleString('en'))} توکن ورودی و {faNum(usage.value.outputTokens.toLocaleString('en'))} توکن خروجی. </>
+              <> از {faAgo(usage.value.since)}: {faNum(usage.value.requests)} درخواست (امروز {faNum(usage.value.dayRequests ?? 0)})، {faNum(usage.value.inputTokens.toLocaleString('en'))} توکن ورودی و {faNum(usage.value.outputTokens.toLocaleString('en'))} توکن خروجی. </>
             ) : ': هنوز درخواستی فرستاده نشده است. '}
-            این عددها گزارش خود سرویس‌اند؛ هزینهٔ واقعی را باید در کنسول Anthropic دید.
+            توکن‌ها گزارش خود سرویس‌اند؛ هزینهٔ واقعی را باید در کنسول Anthropic دید.
           </p>
-          <p className="text-muted">برچسب «پاسخ نمونه» یعنی پاسخ از سرور آزمایشی آمده و هوشوارهٔ واقعی نیست.</p>
+          <p className="text-muted">برچسب «پاسخ نمونه» یعنی پاسخ از حالت آزمایشی آمده و هوشوارهٔ واقعی نیست.</p>
         </div>
       </Sheet>
     </div>

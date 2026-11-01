@@ -2,7 +2,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { Link } from 'react-router';
 import type { Explained } from '../../shared/anchor';
 import type { AnchorT, Section } from '../../shared/contract';
-import { errorMessage, sendReport } from '../ai/client';
+import { saveReport } from '../ai/client';
 import { useSection, type SectionState } from '../ai/useAi';
 import type { Poem } from '../data/library';
 import type { AnalysisRecord } from '../lib/db';
@@ -88,7 +88,7 @@ function SimpleBody({ poem, state, onRequest, onReport }: { poem: Poem; state: S
       </div>
     );
   if (state.status === 'loading') return <Spinner label="هوشواره در حال نوشتن معنی ساده است…" />;
-  if (state.status === 'error') return <ErrorBox text={state.message} onRetry={onRequest} />;
+  if (state.status === 'error') return <ErrorBox text={state.message} onRetry={onRequest} settingsLink={state.needsKey} />;
   const d = state.rec.data as Explained['simple'];
   return (
     <div>
@@ -149,7 +149,7 @@ function DetailRow({ poem, n, def, open, onToggle, setFocus, onReport }: {
         <div id={panelId} className="px-6 pb-6">
           {state.status === 'checking' && <Spinner label="در حال بررسی…" />}
           {state.status === 'loading' && <Spinner label={`هوشواره در حال آماده‌کردن «${def.label}» است…`} />}
-          {state.status === 'error' && <ErrorBox text={state.message} onRetry={request} />}
+          {state.status === 'error' && <ErrorBox text={state.message} onRetry={request} settingsLink={state.needsKey} />}
           {state.status === 'idle' && (
             <button type="button" onClick={request} className="text-green font-bold underline underline-offset-4 py-2">دریافت توضیح «{def.label}»</button>
           )}
@@ -312,7 +312,7 @@ function SectionBody({ section, rec, setFocus, onReport }: { section: Exclude<Se
 
 function ReportSheet({ open, onClose, poem, n, target }: { open: boolean; onClose: () => void; poem: Poem; n: number; target: { section: Section; rec: AnalysisRecord } | null }) {
   const [text, setText] = useState('');
-  const [state, setState] = useState<'idle' | 'sending' | 'sent' | { error: string }>('idle');
+  const [state, setState] = useState<'idle' | 'saving' | { error: string }>('idle');
   const toast = useToast();
   useEffect(() => {
     if (open) {
@@ -321,15 +321,14 @@ function ReportSheet({ open, onClose, poem, n, target }: { open: boolean; onClos
     }
   }, [open]);
   if (!target) return null;
-  const send = async () => {
-    setState('sending');
+  const save = async () => {
+    setState('saving');
     try {
-      await sendReport(poem, n, target.section, target.rec.model, target.rec.data, text.trim());
-      setState('sent');
-      toast({ text: 'گزارش فرستاده شد. سپاس!' });
+      await saveReport(poem, n, target.section, target.rec.model, target.rec.data, text.trim());
+      toast({ text: 'گزارش ثبت شد' });
       onClose();
-    } catch (e) {
-      setState({ error: errorMessage(e) });
+    } catch {
+      setState({ error: 'ثبت گزارش روی دستگاه ممکن نشد. دوباره امتحان کنید.' });
     }
   };
   return (
@@ -337,12 +336,11 @@ function ReportSheet({ open, onClose, poem, n, target }: { open: boolean; onClos
       <label htmlFor="report-text" className="text-xs font-bold text-green mb-2 block">چه چیزی نادرست یا گمراه‌کننده است؟ (اختیاری)</label>
       <textarea id="report-text" rows={4} maxLength={600} value={text} onChange={(e) => setText(e.target.value)} className="w-full bg-paper border border-line rounded-xl p-3 text-sm focus:outline-none focus:border-green resize-none" />
       <p className="text-[11px] text-muted leading-relaxed mt-2">
-        همراه گزارش، همین توضیح، شمارهٔ بیت و نام مدل فرستاده می‌شود
-        {poem.origin === 'user' ? '؛ چون این شعر را خودتان وارد کرده‌اید، عبارت‌های نقل‌شده از آن هم در توضیح هست.' : '.'}
+        گزارش همراه همین توضیح، شمارهٔ بیت و نام مدل فقط روی این دستگاه ثبت می‌شود و جایی فرستاده نمی‌شود. فهرست گزارش‌ها در «تنظیمات» است و در فایل پشتیبان هم می‌آید.
       </p>
       {typeof state === 'object' && <div className="mt-3"><ErrorBox text={state.error} /></div>}
-      <button type="button" disabled={state === 'sending'} onClick={send} className="w-full mt-4 bg-green text-on-green py-3 rounded-xl font-medium disabled:opacity-60">
-        {state === 'sending' ? 'در حال فرستادن…' : 'فرستادن گزارش'}
+      <button type="button" disabled={state === 'saving'} onClick={save} className="w-full mt-4 bg-green text-on-green py-3 rounded-xl font-medium disabled:opacity-60">
+        {state === 'saving' ? 'در حال ثبت…' : 'ثبت گزارش'}
       </button>
     </Sheet>
   );

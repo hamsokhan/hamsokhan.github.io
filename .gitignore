@@ -5,9 +5,4 @@ dev-dist
 .env
 .env.*
 !.env.example
-functions/lib
-functions/.env
-functions/node_modules
-.firebase
-firebase-debug.log
 .DS_Store

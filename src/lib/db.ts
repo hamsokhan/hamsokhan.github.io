@@ -38,6 +38,17 @@ export interface ReflectionRecord {
   feedback: unknown | null;
   createdAt: number;
 }
+export interface ReportRecord {
+  id: string;
+  poemId: string;
+  textVersion: string;
+  n: number;
+  section: Section;
+  model: string | null;
+  message: string;
+  analysis: unknown;
+  createdAt: number;
+}
 export interface MetaRecord { key: string; value: unknown }
 
 interface HamSokhanDB extends DBSchema {
@@ -48,25 +59,31 @@ interface HamSokhanDB extends DBSchema {
   progress: { key: string; value: ProgressRecord };
   conversations: { key: string; value: ConversationRecord };
   reflections: { key: string; value: ReflectionRecord };
+  reports: { key: string; value: ReportRecord };
   meta: { key: string; value: MetaRecord };
 }
 
-export const STORES = ['userPoems', 'savedPoems', 'savedVerses', 'analyses', 'progress', 'conversations', 'reflections'] as const;
+/** Stores included in backups. `meta` (API key, consent, usage) is deliberately not one of them. */
+export const STORES = ['userPoems', 'savedPoems', 'savedVerses', 'analyses', 'progress', 'conversations', 'reflections', 'reports'] as const;
 export type DataStore = (typeof STORES)[number];
 
 let dbPromise: Promise<IDBPDatabase<HamSokhanDB>> | null = null;
 
 export function db(): Promise<IDBPDatabase<HamSokhanDB>> {
-  dbPromise ??= openDB<HamSokhanDB>('hamsokhan', 1, {
-    upgrade(d) {
-      d.createObjectStore('userPoems', { keyPath: 'id' });
-      d.createObjectStore('savedPoems', { keyPath: 'poemId' });
-      d.createObjectStore('savedVerses', { keyPath: 'key' }).createIndex('byPoem', 'poemId');
-      d.createObjectStore('analyses', { keyPath: 'key' }).createIndex('byVerse', ['poemId', 'n']);
-      d.createObjectStore('progress', { keyPath: 'poemId' });
-      d.createObjectStore('conversations', { keyPath: 'key' });
-      d.createObjectStore('reflections', { keyPath: 'id' });
-      d.createObjectStore('meta', { keyPath: 'key' });
+  // Versioned, additive migrations: never drop a store that older data may live in.
+  dbPromise ??= openDB<HamSokhanDB>('hamsokhan', 2, {
+    upgrade(d, oldVersion) {
+      if (oldVersion < 1) {
+        d.createObjectStore('userPoems', { keyPath: 'id' });
+        d.createObjectStore('savedPoems', { keyPath: 'poemId' });
+        d.createObjectStore('savedVerses', { keyPath: 'key' }).createIndex('byPoem', 'poemId');
+        d.createObjectStore('analyses', { keyPath: 'key' }).createIndex('byVerse', ['poemId', 'n']);
+        d.createObjectStore('progress', { keyPath: 'poemId' });
+        d.createObjectStore('conversations', { keyPath: 'key' });
+        d.createObjectStore('reflections', { keyPath: 'id' });
+        d.createObjectStore('meta', { keyPath: 'key' });
+      }
+      if (oldVersion < 2) d.createObjectStore('reports', { keyPath: 'id' });
     },
     blocked() {
       // Another tab holds an older version open; it will close on its versionchange.

@@ -59,11 +59,11 @@ export async function addUserPoem(input: { title: string | null; poet: string | 
 /** Deletes a pasted poem and everything attached to it (after the user confirmed). */
 export async function deleteUserPoem(id: string) {
   const d = await db();
-  const tx = d.transaction(['userPoems', 'savedPoems', 'savedVerses', 'analyses', 'progress', 'conversations', 'reflections'], 'readwrite');
+  const tx = d.transaction(['userPoems', 'savedPoems', 'savedVerses', 'analyses', 'progress', 'conversations', 'reflections', 'reports'], 'readwrite');
   await tx.objectStore('userPoems').delete(id);
   await tx.objectStore('savedPoems').delete(id);
   await tx.objectStore('progress').delete(id);
-  for (const s of ['savedVerses', 'analyses', 'conversations', 'reflections'] as const) {
+  for (const s of ['savedVerses', 'analyses', 'conversations', 'reflections', 'reports'] as const) {
     let cur = await tx.objectStore(s).openCursor();
     while (cur) {
       if (cur.value.poemId === id) await cur.delete();

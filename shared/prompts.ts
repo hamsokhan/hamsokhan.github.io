@@ -1,7 +1,7 @@
 // Prompt text for Hooshvare. Bump PROMPT_VERSION in shared/contract.ts whenever
 // these instructions change, so cached explanations are not reused across versions.
-import type { Section } from '../../shared/contract';
-import { indexedMisra } from '../../shared/text';
+import type { Section } from './contract';
+import { indexedMisra } from './text';
 
 export interface PoemContext {
   title: string | null;

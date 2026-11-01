@@ -161,15 +161,20 @@ export function Spinner({ label }: { label: string }) {
   );
 }
 
-export function ErrorBox({ text, onRetry }: { text: string; onRetry?: () => void }) {
+export function ErrorBox({ text, onRetry, settingsLink }: { text: string; onRetry?: () => void; settingsLink?: boolean }) {
   return (
     <div role="alert" className="rounded-xl border border-danger/40 bg-danger/5 p-4 text-sm leading-relaxed">
       <p className="flex items-start gap-2"><Icon name="triangle-exclamation" className="text-danger mt-1" />{text}</p>
-      {onRetry && (
-        <button type="button" onClick={onRetry} className="mt-3 text-green font-bold underline underline-offset-4">
-          تلاش دوباره
-        </button>
-      )}
+      <div className="flex gap-5">
+        {settingsLink && (
+          <NavLink to="/settings" className="mt-3 text-green font-bold underline underline-offset-4">رفتن به تنظیمات</NavLink>
+        )}
+        {onRetry && (
+          <button type="button" onClick={onRetry} className="mt-3 text-green font-bold underline underline-offset-4">
+            تلاش دوباره
+          </button>
+        )}
+      </div>
     </div>
   );
 }

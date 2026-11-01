@@ -29,7 +29,7 @@ function Reflect({ poem, n }: { poem: Poem; n: number }) {
   const gate = useAiGate();
   const verse = poem.verses[n - 1];
   const [text, setText] = useState('');
-  const [state, setState] = useState<{ s: 'idle' } | { s: 'sending'; ctrl: AbortController } | { s: 'done'; fb: ModelOutputs['reflect']; demo?: boolean } | { s: 'error'; msg: string }>({ s: 'idle' });
+  const [state, setState] = useState<{ s: 'idle' } | { s: 'sending'; ctrl: AbortController } | { s: 'done'; fb: ModelOutputs['reflect']; demo?: boolean } | { s: 'error'; msg: string; needsKey: boolean }>({ s: 'idle' });
   const ctrlRef = useRef<AbortController | null>(null);
   useEffect(() => () => ctrlRef.current?.abort(), []);
 
@@ -43,15 +43,15 @@ function Reflect({ poem, n }: { poem: Poem; n: number }) {
     // The user's own writing is saved first, whatever happens to the request.
     await (await db()).put('reflections', { id, poemId: poem.id, n, text: text.trim(), feedback: null, createdAt: Date.now() });
     try {
-      const { data, meta } = await sendReflection(poem, n, text.trim(), ctrl.signal);
+      const { data, demo } = await sendReflection(poem, n, text.trim(), ctrl.signal);
       const d = await db();
       const rec = await d.get('reflections', id);
       if (rec) await d.put('reflections', { ...rec, feedback: data });
       notifyChange();
-      setState({ s: 'done', fb: data, demo: meta.demo });
+      setState({ s: 'done', fb: data, demo });
     } catch (e) {
       if (e instanceof HooshvareError && e.code === 'aborted') setState({ s: 'idle' });
-      else setState({ s: 'error', msg: errorMessage(e) });
+      else setState({ s: 'error', msg: errorMessage(e), needsKey: e instanceof HooshvareError && (e.code === 'no_key' || e.code === 'upstream_auth') });
     }
   };
 
@@ -105,7 +105,7 @@ function Reflect({ poem, n }: { poem: Poem; n: number }) {
               placeholder="برداشت خود را اینجا بنویسید..."
               className="w-full bg-card border border-line rounded-2xl py-4 px-6 text-sm focus:outline-none focus:border-green resize-none leading-relaxed shadow-sm"
             />
-            {state.s === 'error' && <ErrorBox text={state.msg} onRetry={submit} />}
+            {state.s === 'error' && <ErrorBox text={state.msg} onRetry={submit} settingsLink={state.needsKey} />}
             {state.s === 'sending' ? (
               <div className="flex items-center justify-between text-sm text-muted" role="status">
                 <span className="flex items-center gap-3"><span className="w-4 h-4 rounded-full border-2 border-line border-t-green animate-spin" aria-hidden="true" />هوشواره در حال خواندن برداشت شماست…</span>

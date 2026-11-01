@@ -39,7 +39,7 @@ function Chat({ poem, n }: { poem: Poem; n: number }) {
   const [messages, setMessages] = useState<ChatMessage[] | null>(null);
   const [draft, setDraft] = useState('');
   const [pending, setPending] = useState<AbortController | null>(null);
-  const [error, setError] = useState<{ text: string; retry: string } | null>(null);
+  const [error, setError] = useState<{ text: string; retry: string; needsKey: boolean } | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -63,14 +63,14 @@ function Chat({ poem, n }: { poem: Poem; n: number }) {
     setPending(ctrl);
     try {
       const res = await sendChat(poem, n, history, message, ctrl.signal);
-      const next: ChatMessage[] = [...withUser, { role: 'assistant', text: res.reply, at: Date.now(), demo: res.meta.demo, model: res.meta.model }];
+      const next: ChatMessage[] = [...withUser, { role: 'assistant', text: res.reply, at: Date.now(), demo: res.demo || undefined, model: res.model }];
       setMessages(next);
       await saveConversation(poem, n, next);
     } catch (e) {
       // The unanswered question is kept in the box so it can be sent again.
       setMessages(messages);
       setDraft(message);
-      if (!(e instanceof HooshvareError && e.code === 'aborted')) setError({ text: errorMessage(e), retry: message });
+      if (!(e instanceof HooshvareError && e.code === 'aborted')) setError({ text: errorMessage(e), retry: message, needsKey: e instanceof HooshvareError && (e.code === 'no_key' || e.code === 'upstream_auth') });
     } finally {
       setPending(null);
     }
@@ -104,7 +104,7 @@ function Chat({ poem, n }: { poem: Poem; n: number }) {
       <main className="flex-1 overflow-y-auto px-6 py-6 bg-paper" aria-live="polite">
         <div className="space-y-6 max-w-2xl mx-auto flex flex-col">
           <p className="text-[10px] text-muted leading-relaxed text-center px-8">
-            متن بیت، بیت‌های همین شعر و پیام‌های شما برای دریافت پاسخ به سرویس هوش مصنوعی فرستاده می‌شوند. گفت‌وگو فقط دربارهٔ همین شعر و بیت است و روی همین دستگاه ذخیره می‌شود.
+            متن بیت، بیت‌های همین شعر و پیام‌های شما با کلید خودتان به سرویس Claude فرستاده می‌شوند. گفت‌وگو فقط دربارهٔ همین شعر و بیت است و روی همین دستگاه ذخیره می‌شود.
           </p>
           {messages?.length === 0 && !pending && (
             <p className="text-sm text-muted text-center leading-relaxed">پرسشی دربارهٔ این بیت بنویسید یا یکی از پیشنهادهای پایین را انتخاب کنید.</p>
@@ -132,7 +132,7 @@ function Chat({ poem, n }: { poem: Poem; n: number }) {
               <button type="button" className="text-green underline underline-offset-4" onClick={() => pending.abort()}>لغو</button>
             </div>
           )}
-          {error && <ErrorBox text={error.text} onRetry={() => void send(error.retry)} />}
+          {error && <ErrorBox text={error.text} onRetry={() => void send(error.retry)} settingsLink={error.needsKey} />}
           <div ref={endRef} />
         </div>
       </main>

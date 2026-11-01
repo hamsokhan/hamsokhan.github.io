@@ -1,6 +1,6 @@
-// Request/response contract between the app and the Hooshvare server function.
-// Model output is validated against these schemas on the server, then checked
-// again in the app before anything is stored or displayed.
+// Contract for Hooshvare output. Model output is validated against these
+// schemas, anchored to the original text, and validated again before it is
+// stored or displayed.
 import { z } from 'zod';
 
 export const PROMPT_VERSION = 'p1';
@@ -87,48 +87,6 @@ export type AnchorT = z.infer<typeof AnchorSchema>;
 /** A model ref after server-side anchoring; `anchor` is null when the quote could not be located. */
 export type AnchoredRef = { quote: string; anchor: AnchorT | null };
 
-// ---- Requests ----
-
-const PoemPayload = z.discriminatedUnion('kind', [
-  z.object({ kind: z.literal('library'), id: z.string().max(80), textVersion: z.string().max(40) }),
-  z.object({
-    kind: z.literal('user'),
-    textVersion: z.string().max(40),
-    title: z.string().max(LIMITS.maxTitleChars).nullable(),
-    poet: z.string().max(LIMITS.maxTitleChars).nullable(),
-    verses: z
-      .array(z.array(z.string().max(LIMITS.maxMisraChars)).min(1).max(2))
-      .min(1)
-      .max(LIMITS.maxVerses),
-  }),
-]);
-export type PoemPayloadT = z.infer<typeof PoemPayload>;
-
-const ChatTurn = z.object({ role: z.enum(['user', 'assistant']), text: z.string().max(LIMITS.maxMessageChars * 3) });
-
-export const HooshvareRequest = z.discriminatedUnion('type', [
-  z.object({ type: z.literal('explain'), poem: PoemPayload, verse: z.number().int().min(1), section: z.enum(SECTIONS), fresh: z.boolean().optional() }),
-  z.object({
-    type: z.literal('chat'),
-    poem: PoemPayload,
-    verse: z.number().int().min(1),
-    history: z.array(ChatTurn).max(LIMITS.maxHistory),
-    message: z.string().min(1).max(LIMITS.maxMessageChars),
-  }),
-  z.object({ type: z.literal('reflect'), poem: PoemPayload, verse: z.number().int().min(1), reflection: z.string().min(3).max(LIMITS.maxReflectionChars) }),
-  z.object({
-    type: z.literal('report'),
-    poemId: z.string().max(80),
-    textVersion: z.string().max(40),
-    verse: z.number().int().min(1),
-    section: z.string().max(20),
-    model: z.string().max(60).nullable(),
-    message: z.string().max(LIMITS.maxReportChars),
-    analysis: z.string().max(12000),
-  }),
-]);
-export type HooshvareRequestT = z.infer<typeof HooshvareRequest>;
-
 export const ERROR_CODES = [
   'invalid_request',
   'rate_limited',
@@ -142,17 +100,3 @@ export const ERROR_CODES = [
   'forbidden_origin',
 ] as const;
 export type ErrorCode = (typeof ERROR_CODES)[number];
-
-export interface ResponseMeta {
-  model: string;
-  promptVersion: string;
-  cached: boolean;
-  /** Tokens reported by the API for this call (0 when served from cache). */
-  usage: { inputTokens: number; outputTokens: number };
-  /** True only for the local mock server; never set by the real function. */
-  demo?: boolean;
-}
-
-export type HooshvareResponse =
-  | { ok: true; data: unknown; meta: ResponseMeta }
-  | { ok: false; error: { code: ErrorCode; message: string; retryAfterSec?: number } };

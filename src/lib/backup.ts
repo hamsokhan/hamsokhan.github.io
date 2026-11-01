@@ -6,7 +6,8 @@ import { z } from 'zod';
 import { db, STORES, type DataStore } from './db';
 
 export const BACKUP_APP = 'hamsokhan';
-export const BACKUP_SCHEMA = 1;
+// 2: adds `reports`. Schema-1 files are still accepted (missing stores default to empty).
+export const BACKUP_SCHEMA = 2;
 const MAX_BYTES = 20 * 1024 * 1024;
 
 const Verse = z.object({ n: z.number().int().min(1), misras: z.array(z.string().max(400)).min(1).max(2) });
@@ -25,6 +26,7 @@ const Rec = {
     updatedAt: z.number(),
   }),
   reflections: z.object({ id: z.string(), poemId: z.string(), n: z.number().int(), text: z.string(), feedback: z.unknown().nullable(), createdAt: z.number() }),
+  reports: z.object({ id: z.string(), poemId: z.string(), textVersion: z.string(), n: z.number().int(), section: z.enum(['simple', 'words', 'structure', 'grammar', 'devices', 'deeper']), model: z.string().nullable(), message: z.string(), analysis: z.unknown(), createdAt: z.number() }),
 } satisfies Record<DataStore, z.ZodType>;
 
 const BackupSchema = z.object({
@@ -36,10 +38,10 @@ const BackupSchema = z.object({
 export type Backup = z.infer<typeof BackupSchema>;
 
 const KEY: Record<DataStore, string> = {
-  userPoems: 'id', savedPoems: 'poemId', savedVerses: 'key', analyses: 'key', progress: 'poemId', conversations: 'key', reflections: 'id',
+  userPoems: 'id', savedPoems: 'poemId', savedVerses: 'key', analyses: 'key', progress: 'poemId', conversations: 'key', reflections: 'id', reports: 'id',
 };
 const STAMP: Record<DataStore, string> = {
-  userPoems: 'createdAt', savedPoems: 'savedAt', savedVerses: 'savedAt', analyses: 'createdAt', progress: 'updatedAt', conversations: 'updatedAt', reflections: 'createdAt',
+  userPoems: 'createdAt', savedPoems: 'savedAt', savedVerses: 'savedAt', analyses: 'createdAt', progress: 'updatedAt', conversations: 'updatedAt', reflections: 'createdAt', reports: 'createdAt',
 };
 
 export async function exportBackup(): Promise<Backup> {
