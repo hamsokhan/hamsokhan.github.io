@@ -4,7 +4,7 @@
 
 - **اپ:** React + Vite + TypeScript. داده‌ها با IndexedDB روی همان دستگاه می‌مانند. اپ روی اندروید قابل نصب است و متن‌ها و توضیح‌های ذخیره‌شده بدون اینترنت هم در دسترس‌اند.
 - **هوشواره:** اپ با کلید API خودتان مستقیم به Claude وصل می‌شود. سرور، حساب کاربری و Firebase در کار نیست.
-- **نشانی منتشرشده:** https://mohammad100afghahi-ctrl.github.io/hamsokhan/ (GitHub Pages؛ با هر push به `main` به‌روز می‌شود)
+- **نشانی منتشرشده:** https://hamsokhan.github.io/ (GitHub Pages در سازمان جدای `hamsokhan`، تا origin با اپ‌های دیگر مشترک نباشد؛ با هر push به `main` به‌روز می‌شود)
 
 ## اجرا روی رایانه
 
