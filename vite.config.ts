@@ -24,7 +24,8 @@ export default defineConfig({
     react(),
     tailwindcss(),
     VitePWA({
-      registerType: 'prompt',
+      // Registration and reload-on-update live in src/lib/pwaUpdate.ts.
+      injectRegister: false,
       includeAssets: ['icon.svg', 'icon-192.png'],
       manifest: {
         // Stable install identity: keep `id` unchanged even if the name changes.
@@ -56,6 +57,8 @@ export default defineConfig({
         globIgnores: ['**/fa-brands-*', '**/fa-v4compatibility*', '**/*.ttf'],
         navigateFallback: 'index.html',
         cleanupOutdatedCaches: true,
+        skipWaiting: true,
+        clientsClaim: true,
         runtimeCaching: [],
       },
     }),

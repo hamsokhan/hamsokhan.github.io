@@ -28,7 +28,7 @@ export async function setAiSettings(patch: Partial<AiSettings>) {
 }
 
 export class HooshvareError extends Error {
-  code: ErrorCode | 'offline' | 'network' | 'aborted' | 'no_key';
+  code: ErrorCode | 'offline' | 'network' | 'aborted' | 'no_key' | 'stale';
   constructor(code: HooshvareError['code'], message: string) {
     super(message);
     this.code = code;
@@ -50,6 +50,7 @@ const MESSAGES: Record<HooshvareError['code'], string> = {
   offline: 'اتصال اینترنت برقرار نیست. متن‌ها و توضیح‌های ذخیره‌شده در دسترس‌اند؛ برای توضیح تازه به اینترنت نیاز است.',
   network: 'ارتباط با سرویس برقرار نشد. اتصال را بررسی کنید و دوباره امتحان کنید.',
   aborted: 'درخواست لغو شد.',
+  stale: 'نسخهٔ تازهٔ اپ رسیده است. صفحه را یک بار تازه کنید (یا اپ را ببندید و باز کنید).',
 };
 export const errorMessage = (e: unknown) => (e instanceof HooshvareError ? e.message : MESSAGES.network);
 const fail = (code: HooshvareError['code']) => new HooshvareError(code, MESSAGES[code]);
@@ -93,7 +94,13 @@ async function call<K extends keyof typeof ModelOutput>(kind: K, user: string, o
   if (!MOCK && !ai.apiKey) throw fail('no_key');
   if (!MOCK && !navigator.onLine) throw fail('offline');
   await reserveCall(ai.dailyCap);
-  const engine = await import('./engine');
+  let engine: typeof import('./engine');
+  try {
+    engine = await import('./engine');
+  } catch {
+    // After an update the old page may ask for a file the new release replaced.
+    throw fail('stale');
+  }
   try {
     if (MOCK) return { data: ModelOutput[kind].parse(await opts.mock()) as ModelOutputs[K], model: 'mock', demo: true };
     const out = await engine.runModel(ai.apiKey!, ai.model, ModelOutput[kind], user, opts);

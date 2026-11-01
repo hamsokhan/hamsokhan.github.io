@@ -1,8 +1,6 @@
-import { useEffect } from 'react';
 import { createHashRouter, Outlet, RouterProvider, ScrollRestoration } from 'react-router';
-import { useRegisterSW } from 'virtual:pwa-register/react';
 import { AiGateProvider } from './ai/useAi';
-import { ToastProvider, useToast } from './components/ui';
+import { ToastProvider } from './components/ui';
 import ChatScreen from './screens/Chat';
 import Discover from './screens/Discover';
 import ImportPoem from './screens/ImportPoem';
@@ -14,28 +12,12 @@ import ReflectScreen from './screens/Reflect';
 import Saved from './screens/Saved';
 import Settings from './screens/Settings';
 
-/** Offers a reload when a new version is ready; never reloads on its own. */
-function UpdateNotice() {
-  const toast = useToast();
-  const { needRefresh: [needRefresh], updateServiceWorker } = useRegisterSW({
-    onRegisteredSW(_url, reg) {
-      // Check for a new version when the app returns from the background.
-      document.addEventListener('visibilitychange', () => document.visibilityState === 'visible' && void reg?.update());
-    },
-  });
-  useEffect(() => {
-    if (needRefresh) toast({ text: 'نسخهٔ تازهٔ هم‌سخن آماده است.', action: { label: 'به‌روزرسانی', run: () => void updateServiceWorker(true) } });
-  }, [needRefresh, toast, updateServiceWorker]);
-  return null;
-}
-
 function Root() {
   return (
     <ToastProvider>
       <AiGateProvider>
         <Outlet />
         <ScrollRestoration />
-        <UpdateNotice />
       </AiGateProvider>
     </ToastProvider>
   );
