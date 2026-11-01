@@ -256,14 +256,15 @@ function ReaderFooter({ poem, inline }: { poem: Poem; inline?: boolean }) {
     toast({ text: (await copyText(text)) ? 'متن برای اشتراک‌گذاری کپی شد' : 'اشتراک‌گذاری ممکن نشد' });
   };
   return (
-    <footer className={`${inline ? 'shrink-0' : 'fixed bottom-0 left-0 right-0'} bg-card border-t border-line py-4 px-8 z-10 safe-bottom`}>
-      <div className="flex justify-between items-center max-w-2xl mx-auto">
-        <button type="button" aria-pressed={!!isSaved} onClick={async () => { await setPoemSaved(poem.id, !isSaved); toast({ text: isSaved ? 'از ذخیره‌ها برداشته شد' : 'شعر ذخیره شد' }); }} className={`flex items-center gap-2 py-2 transition-colors ${isSaved ? 'text-green' : 'text-muted hover:text-green'}`}>
+    <footer className={`${inline ? 'shrink-0' : 'fixed bottom-0 left-0 right-0'} bg-card border-t border-line py-3 px-6 z-10 safe-bottom`}>
+      {/* Each action is centred in its own half, with the divider in the middle. */}
+      <div className="grid grid-cols-[1fr_auto_1fr] items-center max-w-2xl mx-auto">
+        <button type="button" aria-pressed={!!isSaved} onClick={async () => { await setPoemSaved(poem.id, !isSaved); toast({ text: isSaved ? 'از ذخیره‌ها برداشته شد' : 'شعر ذخیره شد' }); }} className={`justify-self-center flex items-center gap-2 py-2 px-4 transition-colors ${isSaved ? 'text-green' : 'text-muted hover:text-green'}`}>
           <Icon name="bookmark" style={isSaved ? 'solid' : 'regular'} className="text-xl" />
           <span className="text-xs font-medium">{isSaved ? 'ذخیره شده' : 'ذخیره شعر'}</span>
         </button>
         <div className="w-px h-6 bg-line" />
-        <button type="button" onClick={share} className="flex items-center gap-2 py-2 text-muted hover:text-green transition-colors">
+        <button type="button" onClick={share} className="justify-self-center flex items-center gap-2 py-2 px-4 text-muted hover:text-green transition-colors">
           <Icon name="share-nodes" className="text-xl" />
           <span className="text-xs font-medium">اشتراک‌گذاری</span>
         </button>
