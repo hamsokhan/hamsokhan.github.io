@@ -1,0 +1,115 @@
+@import 'tailwindcss';
+@import 'vazirmatn/Vazirmatn-font-face.css';
+@import '@fortawesome/fontawesome-free/css/fontawesome.min.css';
+@import '@fortawesome/fontawesome-free/css/solid.min.css';
+@import '@fortawesome/fontawesome-free/css/regular.min.css';
+
+@custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
+
+/* Colours from the UX Pilot design. Dark values are derived from the same
+   palette (no separate dark design was delivered). */
+@theme {
+  --font-sans: 'Vazirmatn', system-ui, sans-serif;
+  --color-paper: #f8f5ee;
+  --color-card: #fffdf8;
+  --color-green: #214d3b;
+  --color-green-deep: #1a3d2f;
+  --color-on-green: #f8f5ee;
+  --color-ink: #242c28;
+  --color-muted: #626a62;
+  --color-line: #dedcd2;
+  --color-selected: #e8f1ec;
+  --color-danger: #9b2c2c;
+}
+
+:root[data-theme='dark'] {
+  --color-paper: #141a17;
+  --color-card: #1b2420;
+  --color-green: #8cc2a6;
+  --color-green-deep: #a5d3bb;
+  --color-on-green: #10241b;
+  --color-ink: #e9e5da;
+  --color-muted: #a7ada4;
+  --color-line: #36423c;
+  --color-selected: #213a2e;
+  --color-danger: #e79a9a;
+  color-scheme: dark;
+}
+
+:root {
+  --font-scale: 1;
+  color-scheme: light;
+}
+
+html {
+  font-size: calc(16px * var(--font-scale));
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  font-family: var(--font-sans);
+  background-color: var(--color-paper);
+  color: var(--color-ink);
+  -webkit-tap-highlight-color: transparent;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-green);
+  outline-offset: 2px;
+  border-radius: 0.5rem;
+}
+
+button,
+[role='button'] {
+  cursor: pointer;
+}
+button:disabled {
+  cursor: default;
+}
+
+.editorial-shadow {
+  box-shadow: 0 4px 20px rgba(33, 77, 59, 0.04);
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  scrollbar-width: none;
+}
+
+/* Poem text: a misra wraps inside its own block, never across the verse boundary. */
+.misra {
+  display: block;
+  overflow-wrap: anywhere;
+  /* Continuation lines of a long misra are indented so they read as one misra. */
+  padding-inline-start: 1.25em;
+  text-indent: -1.25em;
+}
+
+.safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+@keyframes slide-up {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+.animate-slide-up {
+  animation: slide-up 0.25s ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}

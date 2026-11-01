@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content" />
+    <meta name="theme-color" content="#F8F5EE" />
+    <meta name="description" content="هم‌سخن: شعر را بخوان، روی بیت بزن، ساده بفهم و هرجا خواستی عمیق‌تر یاد بگیر." />
+    <link rel="icon" href="icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="icon-192.png" />
+    <title>هم‌سخن</title>
+    <script>
+      // Apply the saved theme before first paint.
+      try {
+        var s = JSON.parse(localStorage.getItem('hamsokhan.settings') || 'null') || {};
+        var dark = s.theme === 'dark' || (s.theme !== 'light' && matchMedia('(prefers-color-scheme: dark)').matches);
+        document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+        if (s.fontScale) document.documentElement.style.setProperty('--font-scale', s.fontScale);
+      } catch (e) {}
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <noscript>برای استفاده از هم‌سخن، جاوااسکریپت مرورگر را فعال کنید.</noscript>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

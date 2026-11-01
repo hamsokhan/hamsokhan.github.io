@@ -1,0 +1,14 @@
+{
+  "compilerOptions": {
+    "target": "es2023",
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "noEmit": true,
+    "types": ["node"],
+    "paths": { "zod": ["./node_modules/zod"], "zod/*": ["./node_modules/zod/*"] }
+  },
+  "include": ["src", "../shared"]
+}
