@@ -6,3 +6,7 @@ dev-dist
 .env.*
 !.env.example
 .DS_Store
+# Personal material kept only on this computer (not published)
+design-reference/
+docs/standing-instructions.fa.md
+docs/product-brief.fa.md

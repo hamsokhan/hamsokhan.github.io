@@ -73,6 +73,4 @@ npm run build
 
 - [docs/PROJECT.md](docs/PROJECT.md): معماری، مدل داده، تصمیم‌ها، محدودیت‌ها و کارهای باقی.
 - [docs/SOURCES.md](docs/SOURCES.md): منبع شعرها و روش افزودن شعر تازه.
-- [docs/standing-instructions.fa.md](docs/standing-instructions.fa.md): دستور دائمی ساخت و نگهداری.
-- [docs/product-brief.fa.md](docs/product-brief.fa.md): پرامپت محصول.
-- [design-reference/](design-reference/): بستهٔ طراحی UX Pilot.
+- سند دستور دائمی (`docs/standing-instructions.fa.md`)، پرامپت محصول (`docs/product-brief.fa.md`) و بستهٔ طراحی UX Pilot (`design-reference/`) فقط روی رایانهٔ صاحب پروژه نگهداری می‌شوند و در مخزن عمومی نیستند.
