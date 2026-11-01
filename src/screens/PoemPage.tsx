@@ -227,7 +227,7 @@ function Reader({ poem, selected, onSelect, onExplain, wide }: { poem: Poem; sel
       </div>
 
       {!wide && selected && (
-        <div className="fixed bottom-24 inset-x-6 z-30 max-w-md mx-auto animate-slide-up">
+        <div className="fixed bottom-[calc(6rem+env(safe-area-inset-bottom))] inset-x-6 z-30 max-w-md mx-auto animate-slide-up">
           <button type="button" onClick={() => onExplain(selected)} className="w-full bg-green text-on-green py-4 rounded-2xl shadow-xl flex items-center justify-center gap-3 font-medium transition-transform active:scale-95">
             <Icon name="wand-magic-sparkles" />
             این بیت را توضیح بده
@@ -256,7 +256,7 @@ function ReaderFooter({ poem, inline }: { poem: Poem; inline?: boolean }) {
     toast({ text: (await copyText(text)) ? 'متن برای اشتراک‌گذاری کپی شد' : 'اشتراک‌گذاری ممکن نشد' });
   };
   return (
-    <footer className={`${inline ? 'shrink-0' : 'fixed bottom-0 left-0 right-0'} bg-card border-t border-line py-3 px-6 z-10 safe-bottom`}>
+    <footer className={`${inline ? 'shrink-0' : 'fixed bottom-0 left-0 right-0'} bg-card border-t border-line pt-3 pb-[calc(1rem+env(safe-area-inset-bottom))] px-6 z-10`}>
       {/* Each action is centred in its own half, with the divider in the middle. */}
       <div className="grid grid-cols-[1fr_auto_1fr] items-center max-w-2xl mx-auto">
         <button type="button" aria-pressed={!!isSaved} onClick={async () => { await setPoemSaved(poem.id, !isSaved); toast({ text: isSaved ? 'از ذخیره‌ها برداشته شد' : 'شعر ذخیره شد' }); }} className={`justify-self-center flex items-center gap-2 py-2 px-4 transition-colors ${isSaved ? 'text-green' : 'text-muted hover:text-green'}`}>
@@ -322,7 +322,7 @@ function ExplainScreen({ poem, n, autoRequest }: { poem: Poem; n: number; autoRe
           </button>
         )}
       </main>
-      <div className="fixed bottom-8 inset-x-6 max-w-2xl mx-auto z-20">
+      <div className="fixed bottom-[calc(2rem+env(safe-area-inset-bottom))] inset-x-6 max-w-2xl mx-auto z-20">
         <AskButton poem={poem} n={n} />
       </div>
     </div>

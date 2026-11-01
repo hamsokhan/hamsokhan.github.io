@@ -87,10 +87,6 @@ button:disabled {
   text-indent: -1.25em;
 }
 
-.safe-bottom {
-  padding-bottom: env(safe-area-inset-bottom);
-}
-
 @keyframes slide-up {
   from {
     transform: translateY(20px);

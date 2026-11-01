@@ -74,7 +74,7 @@ export function Sheet({ open, onClose, title, children }: { open: boolean; onClo
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
       <div className="absolute inset-0 bg-black/30" onClick={onClose} aria-hidden="true" />
-      <div ref={ref} tabIndex={-1} role="dialog" aria-modal="true" aria-label={title} className="relative w-full sm:max-w-md max-h-[85dvh] overflow-y-auto bg-card border border-line rounded-t-3xl sm:rounded-3xl p-6 safe-bottom animate-slide-up outline-none">
+      <div ref={ref} tabIndex={-1} role="dialog" aria-modal="true" aria-label={title} className="relative w-full sm:max-w-md max-h-[85dvh] overflow-y-auto bg-card border border-line rounded-t-3xl sm:rounded-3xl px-6 pt-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] animate-slide-up outline-none">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-base font-bold text-green">{title}</h2>
           <IconButton icon="xmark" label="بستن" onClick={onClose} />
@@ -101,7 +101,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   return (
     <ToastCtx.Provider value={push}>
       {children}
-      <div className="fixed bottom-24 inset-x-0 z-[60] flex flex-col items-center gap-2 px-6 pointer-events-none" aria-live="polite">
+      <div className="fixed bottom-[calc(6rem+env(safe-area-inset-bottom))] inset-x-0 z-[60] flex flex-col items-center gap-2 px-6 pointer-events-none" aria-live="polite">
         {toasts.map((t) => (
           <div key={t.id} className="pointer-events-auto max-w-md w-full bg-ink text-paper rounded-xl px-4 py-3 text-sm flex items-center justify-between gap-3 shadow-lg animate-slide-up">
             <span>{t.text}</span>
@@ -131,7 +131,7 @@ export function BottomNav() {
     </NavLink>
   );
   return (
-    <nav aria-label="بخش‌های اصلی" className="fixed bottom-0 left-0 right-0 bg-card border-t border-line z-20 safe-bottom">
+    <nav aria-label="بخش‌های اصلی" className="fixed bottom-0 left-0 right-0 bg-card border-t border-line z-20 pb-[env(safe-area-inset-bottom)]">
       <div className="flex justify-around items-center py-3 px-2 max-w-3xl mx-auto">
         {item('/', 'compass', 'کشف شعر')}
         {item('/library', 'book', 'کتابخانه')}

@@ -145,7 +145,7 @@ function Chat({ poem, n }: { poem: Poem; n: number }) {
         ))}
       </div>
 
-      <footer className="p-6 pt-4 bg-card border-t border-line shrink-0 safe-bottom">
+      <footer className="px-6 pt-4 pb-[calc(1.5rem+env(safe-area-inset-bottom))] bg-card border-t border-line shrink-0">
         <form className="relative max-w-2xl mx-auto" onSubmit={(e) => { e.preventDefault(); void send(draft); }}>
           <label htmlFor="chat-input" className="sr-only">پرسش شما</label>
           <textarea
