@@ -3,7 +3,7 @@
 // the newer one (by its own timestamp) is kept. API keys never live in the
 // browser, so they cannot end up in a backup.
 import { z } from 'zod';
-import { db, STORES, type DataStore } from './db';
+import { STORES, withDb, type DataStore, type DB } from './db';
 
 export const BACKUP_APP = 'hamsokhan';
 // 2: adds `reports`. Schema-1 files are still accepted (missing stores default to empty).
@@ -45,9 +45,10 @@ const STAMP: Record<DataStore, string> = {
 };
 
 export async function exportBackup(): Promise<Backup> {
-  const d = await db();
   const data = {} as Record<DataStore, unknown[]>;
-  for (const s of STORES) data[s] = await d.getAll(s);
+  await withDb(async (d) => {
+    for (const s of STORES) data[s] = await d.getAll(s);
+  }, 30_000);
   return { app: BACKUP_APP, schema: BACKUP_SCHEMA, exportedAt: new Date().toISOString(), data } as Backup;
 }
 
@@ -75,7 +76,11 @@ export interface MergePlan { added: number; updated: number; unchanged: number }
 
 /** Computes and (if apply=true) performs the merge in one transaction. */
 export async function mergeBackup(backup: Backup, apply: boolean): Promise<MergePlan> {
-  const d = await db();
+  // One transaction: either the whole merge is written or none of it.
+  return withDb((d) => mergeInto(d, backup, apply), 60_000);
+}
+
+async function mergeInto(d: DB, backup: Backup, apply: boolean): Promise<MergePlan> {
   const tx = d.transaction([...STORES], apply ? 'readwrite' : 'readonly');
   const plan: MergePlan = { added: 0, updated: 0, unchanged: 0 };
   for (const s of STORES) {

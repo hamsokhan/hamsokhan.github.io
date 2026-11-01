@@ -16,6 +16,7 @@ export function registerServiceWorker() {
   if (!('serviceWorker' in navigator) || import.meta.env.DEV) return;
   const hadController = !!navigator.serviceWorker.controller;
   let pending = false;
+  let lastCheck = Date.now();
 
   navigator.serviceWorker.addEventListener('controllerchange', () => {
     if (!hadController || pending) return; // first install: nothing old on screen
@@ -25,8 +26,11 @@ export function registerServiceWorker() {
 
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'hidden' && pending) window.location.reload();
-    // An installed app can stay open for days; look for a new release when it comes back.
-    if (document.visibilityState === 'visible') void navigator.serviceWorker.getRegistration().then((r) => r?.update()).catch(() => {});
+    // An installed app can stay open for days; look for a new release when it comes back (at most once a minute).
+    if (document.visibilityState === 'visible' && Date.now() - lastCheck > 60_000) {
+      lastCheck = Date.now();
+      void navigator.serviceWorker.getRegistration().then((r) => r?.update()).catch(() => {});
+    }
   });
 
   window.addEventListener('load', () => {

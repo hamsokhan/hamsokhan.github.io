@@ -68,10 +68,26 @@ export const STORES = ['userPoems', 'savedPoems', 'savedVerses', 'analyses', 'pr
 export type DataStore = (typeof STORES)[number];
 
 let dbPromise: Promise<IDBPDatabase<HamSokhanDB>> | null = null;
+export type DB = IDBPDatabase<HamSokhanDB>;
 
-export function db(): Promise<IDBPDatabase<HamSokhanDB>> {
+/** The database did not answer in time (frozen copy of the app holding a lock, blocked upgrade, …). */
+export class DbStuckError extends Error {
+  constructor() {
+    super('database did not respond');
+    this.name = 'DbStuckError';
+  }
+}
+
+const OPEN_TIMEOUT_MS = 5_000;
+
+function timeout<T>(p: Promise<T>, ms: number): Promise<T> {
+  let t: ReturnType<typeof setTimeout>;
+  return Promise.race([p, new Promise<never>((_, reject) => (t = setTimeout(() => reject(new DbStuckError()), ms)))]).finally(() => clearTimeout(t));
+}
+
+function open(): Promise<DB> {
   // Versioned, additive migrations: never drop a store that older data may live in.
-  dbPromise ??= openDB<HamSokhanDB>('hamsokhan', 2, {
+  const opening = openDB<HamSokhanDB>('hamsokhan', 2, {
     upgrade(d, oldVersion) {
       if (oldVersion < 1) {
         d.createObjectStore('userPoems', { keyPath: 'id' });
@@ -86,21 +102,76 @@ export function db(): Promise<IDBPDatabase<HamSokhanDB>> {
       if (oldVersion < 2) d.createObjectStore('reports', { keyPath: 'id' });
     },
     blocked() {
-      // Another tab holds an older version open; it will close on its versionchange.
+      // Another copy holds an older version open; the open timeout below turns this into a clear error.
     },
     blocking() {
       // A newer version was opened elsewhere: let it upgrade, reopen lazily.
-      void dbPromise?.then((d) => d.close());
-      dbPromise = null;
+      closeDb();
     },
     terminated() {
       dbPromise = null;
     },
-  }).catch((e) => {
+  });
+  // If the open never finishes, close whatever it eventually returns.
+  return timeout(opening, OPEN_TIMEOUT_MS).catch((e) => {
+    void opening.then((d) => d.close()).catch(() => {});
+    throw e;
+  });
+}
+
+export function db(): Promise<DB> {
+  dbPromise ??= open().catch((e) => {
     dbPromise = null;
     throw e;
   });
   return dbPromise;
+}
+
+/**
+ * Closes the connection; the next call reopens it. Called when the app goes to
+ * the background: Android freezes hidden apps, and a frozen copy that holds an
+ * open transaction would block every read and write of the visible copy.
+ */
+export function closeDb() {
+  const p = dbPromise;
+  dbPromise = null;
+  void p?.then((d) => d.close()).catch(() => {});
+}
+
+const RECOVERABLE = new Set(['InvalidStateError', 'UnknownError', 'DbStuckError', 'TransactionInactiveError']);
+
+/**
+ * Every read and write goes through here: it never waits more than `ms`. On a
+ * stuck or closed connection it resets the connection; a closed connection (for
+ * example closed while the app was in the background) is retried once.
+ */
+export async function withDb<T>(fn: (d: DB) => Promise<T>, ms = 8_000): Promise<T> {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await timeout(db().then(fn), ms);
+    } catch (e) {
+      const name = (e as Error | undefined)?.name ?? '';
+      if (!RECOVERABLE.has(name)) throw e;
+      closeDb();
+      if (name === 'DbStuckError' || attempt >= 1) throw new DbStuckError();
+    }
+  }
+}
+
+/** Small writes (saves, progress, cached explanations) don't need to wait for disk flush. */
+export async function putRelaxed<S extends 'savedPoems' | 'savedVerses' | 'progress' | 'analyses' | 'conversations' | 'meta' | 'reports'>(store: S, value: HamSokhanDB[S]['value']) {
+  await withDb(async (d) => {
+    const tx = d.transaction(store, 'readwrite', { durability: 'relaxed' });
+    await tx.store.put(value as never);
+    await tx.done;
+  });
+}
+export async function deleteRelaxed(store: 'savedPoems' | 'savedVerses' | 'reports', key: string) {
+  await withDb(async (d) => {
+    const tx = d.transaction(store, 'readwrite', { durability: 'relaxed' });
+    await tx.store.delete(key);
+    await tx.done;
+  });
 }
 
 export const verseKey = (poemId: string, n: number) => `${poemId}#${n}`;
@@ -122,8 +193,8 @@ export function userPoemToPoem(r: UserPoemRecord): Poem {
 }
 
 export async function getMeta<T>(key: string): Promise<T | undefined> {
-  return (await (await db()).get('meta', key))?.value as T | undefined;
+  return (await withDb((d) => d.get('meta', key)))?.value as T | undefined;
 }
 export async function setMeta(key: string, value: unknown) {
-  await (await db()).put('meta', { key, value });
+  await putRelaxed('meta', { key, value });
 }

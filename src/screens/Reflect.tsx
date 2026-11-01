@@ -3,18 +3,19 @@ import { useNavigate, useParams } from 'react-router';
 import { LIMITS, type ModelOutputs } from '../../shared/contract';
 import { errorMessage, HooshvareError, sendReflection } from '../ai/client';
 import { useAiGate } from '../ai/useAi';
-import { AiBadge, ErrorBox, Icon, IconButton, useGoBack } from '../components/ui';
+import { AiBadge, ErrorBox, Icon, IconButton, LoadError, Spinner, useGoBack } from '../components/ui';
 import type { Poem } from '../data/library';
-import { db, verseKey } from '../lib/db';
+import { verseKey, withDb } from '../lib/db';
 import { getPoem, notifyChange, useQuery } from '../lib/store';
 import NotFound from './NotFound';
 
 export default function ReflectScreen() {
   const { poemId = '', n = '' } = useParams();
   const poem = useQuery(() => getPoem(poemId), [poemId]);
-  if (poem.status === 'loading') return null;
+  if (poem.status === 'loading') return <div className="p-6"><Spinner label="در حال بارگذاری…" /></div>;
+  if (poem.status === 'error') return <LoadError />;
   const num = Number(n);
-  if (poem.status === 'error' || !poem.value || !poem.value.verses[num - 1]) return <NotFound />;
+  if (!poem.value || !poem.value.verses[num - 1]) return <NotFound />;
   return <Reflect key={`${poemId}#${num}`} poem={poem.value} n={num} />;
 }
 
@@ -41,12 +42,12 @@ function Reflect({ poem, n }: { poem: Poem; n: number }) {
     setState({ s: 'sending', ctrl });
     const id = crypto.randomUUID();
     // The user's own writing is saved first, whatever happens to the request.
-    await (await db()).put('reflections', { id, poemId: poem.id, n, text: text.trim(), feedback: null, createdAt: Date.now() });
+    const record = { id, poemId: poem.id, n, text: text.trim(), feedback: null as unknown, createdAt: Date.now() };
+    // The text also stays in the box, so a failed local save loses nothing.
+    await withDb((d) => d.put('reflections', record)).catch(() => {});
     try {
       const { data, demo } = await sendReflection(poem, n, text.trim(), ctrl.signal);
-      const d = await db();
-      const rec = await d.get('reflections', id);
-      if (rec) await d.put('reflections', { ...rec, feedback: data });
+      await withDb((d) => d.put('reflections', { ...record, feedback: data })).catch(() => {});
       notifyChange();
       setState({ s: 'done', fb: data, demo });
     } catch (e) {
@@ -57,15 +58,23 @@ function Reflect({ poem, n }: { poem: Poem; n: number }) {
 
   const continueInChat = async () => {
     if (state.s !== 'done') return;
-    const d = await db();
     const key = verseKey(poem.id, n);
-    const existing = await d.get('conversations', key);
-    const base = existing && existing.textVersion === poem.textVersion ? existing.messages : [];
     const now = Date.now();
-    await d.put('conversations', {
-      key, poemId: poem.id, textVersion: poem.textVersion, n, updatedAt: now,
-      messages: [...base, { role: 'user', text: `برداشت من از این بیت:\n${text.trim()}`, at: now }, { role: 'assistant', text: feedbackText(state.fb), at: now + 1, demo: state.demo }],
-    });
+    const fb = state.fb;
+    const demo = state.demo;
+    try {
+      await withDb(async (d) => {
+        const existing = await d.get('conversations', key);
+        const base = existing && existing.textVersion === poem.textVersion ? existing.messages : [];
+        await d.put('conversations', {
+          key, poemId: poem.id, textVersion: poem.textVersion, n, updatedAt: now,
+          messages: [...base, { role: 'user', text: `برداشت من از این بیت:\n${text.trim()}`, at: now }, { role: 'assistant', text: feedbackText(fb), at: now + 1, demo }],
+        });
+      });
+    } catch {
+      setState({ s: 'error', msg: 'ذخیرهٔ برداشت در گفت‌وگو ممکن نشد. دوباره امتحان کنید.', needsKey: false });
+      return;
+    }
     notifyChange();
     navigate(`/poem/${poem.id}/v/${n}/chat`, { replace: true });
   };

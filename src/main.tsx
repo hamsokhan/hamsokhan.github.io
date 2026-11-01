@@ -7,6 +7,8 @@ import { applySettings } from './lib/settings';
 
 applySettings();
 registerServiceWorker();
+// Ask the browser not to evict saved poems and explanations under storage pressure.
+void navigator.storage?.persist?.().catch(() => {});
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

@@ -3,9 +3,9 @@ import { useParams } from 'react-router';
 import { LIMITS } from '../../shared/contract';
 import { errorMessage, HooshvareError, sendChat } from '../ai/client';
 import { useAiGate } from '../ai/useAi';
-import { ErrorBox, Icon, IconButton, useGoBack } from '../components/ui';
+import { ErrorBox, Icon, IconButton, LoadError, Spinner, useGoBack } from '../components/ui';
 import type { Poem } from '../data/library';
-import { db, verseKey, type ChatMessage } from '../lib/db';
+import { putRelaxed, verseKey, withDb, type ChatMessage } from '../lib/db';
 import { faNum } from '../lib/format';
 import { getPoem, notifyChange, useQuery } from '../lib/store';
 import NotFound from './NotFound';
@@ -15,20 +15,21 @@ const SUGGESTED = ['ساده‌تر بگو', 'این واژه اینجا چه م
 export default function ChatScreen() {
   const { poemId = '', n = '' } = useParams();
   const poem = useQuery(() => getPoem(poemId), [poemId]);
-  if (poem.status === 'loading') return null;
+  if (poem.status === 'loading') return <div className="p-6"><Spinner label="در حال بارگذاری…" /></div>;
+  if (poem.status === 'error') return <LoadError />;
   const num = Number(n);
-  if (poem.status === 'error' || !poem.value || !poem.value.verses[num - 1]) return <NotFound />;
+  if (!poem.value || !poem.value.verses[num - 1]) return <NotFound />;
   return <Chat key={`${poemId}#${num}`} poem={poem.value} n={num} />;
 }
 
 async function loadConversation(p: Poem, n: number): Promise<ChatMessage[]> {
-  const rec = await (await db()).get('conversations', verseKey(p.id, n));
+  const rec = await withDb((d) => d.get('conversations', verseKey(p.id, n)));
   // A conversation about an older version of the text is not mixed into this one.
   return rec && rec.textVersion === p.textVersion ? rec.messages : [];
 }
 
 async function saveConversation(p: Poem, n: number, messages: ChatMessage[]) {
-  await (await db()).put('conversations', { key: verseKey(p.id, n), poemId: p.id, textVersion: p.textVersion, n, messages, updatedAt: Date.now() });
+  await putRelaxed('conversations', { key: verseKey(p.id, n), poemId: p.id, textVersion: p.textVersion, n, messages, updatedAt: Date.now() });
   notifyChange();
 }
 

@@ -31,6 +31,7 @@ function CrashPage() {
       <div className="flex gap-4">
         <button type="button" className="text-green underline underline-offset-4" onClick={() => window.location.reload()}>بارگذاری دوباره</button>
         <a href="#/" className="text-green underline underline-offset-4">صفحهٔ اصلی</a>
+        <a href="./fix.html" className="text-green underline underline-offset-4">صفحهٔ تعمیر</a>
       </div>
     </div>
   );

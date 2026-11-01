@@ -139,6 +139,7 @@ export default function Settings() {
         </section>
 
         <div className="mt-12 text-center">
+          <a href="./fix.html" className="block text-xs text-muted underline underline-offset-4 mb-3">صفحهٔ تعمیر اپ (اگر گیر کرد یا به‌روز نشد)</a>
           <p className="text-[10px] text-muted">هم‌سخن نسخه {faNum(__APP_VERSION__)} · ساخت <span dir="ltr">{__BUILD_ID__}</span></p>
         </div>
       </main>

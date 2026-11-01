@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router';
 import { Interpretation } from '../components/Interpretation';
-import { copyText, Icon, IconButton, Sheet, Spinner, useGoBack, useOverlay, useToast } from '../components/ui';
+import { copyText, Icon, IconButton, LoadError, Sheet, Spinner, useGoBack, useOverlay, useToast } from '../components/ui';
 import type { Poem } from '../data/library';
 import { faNum, faOrdinal } from '../lib/format';
-import { deleteUserPoem, getPoem, getProgress, isPoemSaved, isVerseSaved, setPoemSaved, setProgress, setVerseSaved, useQuery } from '../lib/store';
+import { deleteUserPoem, getPoem, getProgress, isPoemSaved, isVerseSaved, setPoemSaved, setProgress, setVerseSaved, useQuery, type Loadable } from '../lib/store';
 import NotFound from './NotFound';
 
 const WIDE = '(min-width: 840px)';
@@ -22,7 +22,8 @@ export default function PoemPage() {
   const { poemId = '', n: nParam } = useParams();
   const poem = useQuery(() => getPoem(poemId), [poemId]);
   if (poem.status === 'loading') return <div className="p-6"><Spinner label="در حال بارگذاری شعر…" /></div>;
-  if (poem.status === 'error' || !poem.value) return <NotFound text="این شعر پیدا نشد." />;
+  if (poem.status === 'error') return <LoadError />;
+  if (!poem.value) return <NotFound text="این شعر پیدا نشد." />;
   return <PoemView poem={poem.value} explainN={nParam ? Number(nParam) : null} />;
 }
 
@@ -37,11 +38,12 @@ function PoemView({ poem, explainN }: { poem: Poem; explainN: number | null }) {
 
   // Record where the reader is; open at the last verse when no verse is given.
   useEffect(() => {
-    if (selected) void setProgress(poem.id, selected);
+    // Progress is a convenience: a failed write must never disturb reading.
+    if (selected) setProgress(poem.id, selected).catch(() => {});
     else
-      void getProgress(poem.id).then((p) => {
-        if (!p) void setProgress(poem.id, 1);
-      });
+      getProgress(poem.id)
+        .then((p) => (p ? undefined : setProgress(poem.id, 1)))
+        .catch(() => {});
   }, [poem.id, selected]);
 
   const select = (n: number) => {
@@ -239,9 +241,12 @@ function Reader({ poem, selected, onSelect, onExplain, wide }: { poem: Poem; sel
 }
 
 function ReaderFooter({ poem, inline }: { poem: Poem; inline?: boolean }) {
-  const saved = useQuery(() => isPoemSaved(poem.id), [poem.id]);
   const toast = useToast();
-  const isSaved = saved.status === 'ready' && saved.value;
+  const [isSaved, toggleSaved] = useSavedToggle(
+    useQuery(() => isPoemSaved(poem.id), [poem.id]),
+    (v) => setPoemSaved(poem.id, v),
+    { on: 'شعر ذخیره شد', off: 'از ذخیره‌ها برداشته شد' },
+  );
   const share = async () => {
     const lines = poem.verses.slice(0, 2).map((v) => v.misras.join('\n')).join('\n\n');
     const text = `${lines}\n\n— ${poem.poetName ?? 'شاعر نامشخص'}${poem.source ? `\n${poem.source.url}` : ''}`;
@@ -259,7 +264,7 @@ function ReaderFooter({ poem, inline }: { poem: Poem; inline?: boolean }) {
     <footer className={`${inline ? 'shrink-0' : 'fixed bottom-0 left-0 right-0'} bg-card border-t border-line pt-3 pb-[calc(1rem+env(safe-area-inset-bottom))] px-6 z-10`}>
       {/* Each action is centred in its own half, with the divider in the middle. */}
       <div className="grid grid-cols-[1fr_auto_1fr] items-center max-w-2xl mx-auto">
-        <button type="button" aria-pressed={!!isSaved} onClick={async () => { await setPoemSaved(poem.id, !isSaved); toast({ text: isSaved ? 'از ذخیره‌ها برداشته شد' : 'شعر ذخیره شد' }); }} className={`justify-self-center flex items-center gap-2 py-2 px-4 transition-colors ${isSaved ? 'text-green' : 'text-muted hover:text-green'}`}>
+        <button type="button" aria-pressed={!!isSaved} onClick={toggleSaved} className={`justify-self-center flex items-center gap-2 py-2 px-4 transition-colors ${isSaved ? 'text-green' : 'text-muted hover:text-green'}`}>
           <Icon name="bookmark" style={isSaved ? 'solid' : 'regular'} className="text-xl" />
           <span className="text-xs font-medium">{isSaved ? 'ذخیره شده' : 'ذخیره شعر'}</span>
         </button>
@@ -273,10 +278,43 @@ function ReaderFooter({ poem, inline }: { poem: Poem; inline?: boolean }) {
   );
 }
 
-export function SaveVerseButton({ poem, n }: { poem: Poem; n: number }) {
-  const saved = useQuery(() => isVerseSaved(poem.id, n), [poem.id, n]);
+/**
+ * Save toggle that changes on screen at once, saves in the background, ignores
+ * taps while a save is running, and reverts with a message if the save fails.
+ */
+function useSavedToggle(query: Loadable<boolean>, write: (v: boolean) => Promise<void>, msg: { on: string; off: string }): [boolean, () => void] {
   const toast = useToast();
-  const isSaved = saved.status === 'ready' && saved.value;
+  const [optimistic, setOptimistic] = useState<boolean | null>(null);
+  const busy = useRef(false);
+  const actual = query.status === 'ready' && query.value;
+  useEffect(() => {
+    if (optimistic !== null && actual === optimistic) setOptimistic(null);
+  }, [actual, optimistic]);
+  const value = optimistic ?? actual;
+  const toggle = async () => {
+    if (busy.current) return;
+    busy.current = true;
+    const next = !value;
+    setOptimistic(next);
+    try {
+      await write(next);
+      toast({ text: next ? msg.on : msg.off });
+    } catch {
+      setOptimistic(null);
+      toast({ text: 'ذخیره انجام نشد. دوباره امتحان کنید.' });
+    } finally {
+      busy.current = false;
+    }
+  };
+  return [value, () => void toggle()];
+}
+
+export function SaveVerseButton({ poem, n }: { poem: Poem; n: number }) {
+  const [isSaved, toggle] = useSavedToggle(
+    useQuery(() => isVerseSaved(poem.id, n), [poem.id, n]),
+    (v) => setVerseSaved(poem.id, n, v),
+    { on: 'بیت ذخیره شد', off: 'بیت از ذخیره‌ها برداشته شد' },
+  );
   return (
     <IconButton
       icon="bookmark"
@@ -284,7 +322,7 @@ export function SaveVerseButton({ poem, n }: { poem: Poem; n: number }) {
       pressed={!!isSaved}
       label={isSaved ? 'برداشتن بیت از ذخیره‌ها' : 'ذخیرهٔ این بیت'}
       className={isSaved ? 'text-green' : ''}
-      onClick={async () => { await setVerseSaved(poem.id, n, !isSaved); toast({ text: isSaved ? 'بیت از ذخیره‌ها برداشته شد' : 'بیت ذخیره شد' }); }}
+      onClick={toggle}
     />
   );
 }

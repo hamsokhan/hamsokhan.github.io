@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="theme-color" content="#1b2420" />
+<title>تعمیر هم‌سخن</title>
+<!-- This page is deliberately outside the service-worker cache: it always comes
+     from the network, so it works even when the cached app is broken.
+     It never deletes saved data (IndexedDB). -->
+<style>
+  :root { color-scheme: light dark; --bg: #f8f5ee; --card: #fffdf8; --ink: #242c28; --muted: #626a62; --line: #dedcd2; --green: #214d3b; --on: #f8f5ee; --bad: #9b2c2c; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #141a17; --card: #1b2420; --ink: #e9e5da; --muted: #a7ada4; --line: #36423c; --green: #8cc2a6; --on: #10241b; --bad: #e79a9a; } }
+  body { margin: 0; padding: 24px 16px 48px; background: var(--bg); color: var(--ink); font-family: system-ui, sans-serif; line-height: 1.8; }
+  main { max-width: 32rem; margin: 0 auto; }
+  h1 { color: var(--green); font-size: 1.3rem; }
+  section { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 16px; margin: 16px 0; }
+  button { font: inherit; width: 100%; padding: 12px; border: 0; border-radius: 12px; background: var(--green); color: var(--on); margin-top: 8px; cursor: pointer; }
+  button.secondary { background: transparent; color: var(--green); border: 1px solid var(--line); }
+  .muted { color: var(--muted); font-size: .9rem; }
+  ul { padding-inline-start: 1.2rem; margin: 8px 0 0; }
+  .bad { color: var(--bad); }
+  pre { white-space: pre-wrap; font-size: .8rem; color: var(--muted); }
+</style>
+</head>
+<body>
+<main>
+  <h1>تعمیر هم‌سخن</h1>
+  <p class="muted">اگر اپ گیر کرده، باز نمی‌شود یا نسخهٔ تازه را نمی‌گیرد، از این صفحه استفاده کنید. هیچ‌کدام از کارهای این صفحه شعرها، ذخیره‌ها، توضیح‌ها یا کلید شما را پاک نمی‌کند.</p>
+
+  <section>
+    <strong>۱. بررسی حافظهٔ اپ</strong>
+    <p class="muted">بررسی می‌کند کدام بخش حافظه پاسخ می‌دهد و کدام قفل مانده است. اگر قفل مانده بود، اپ را در همهٔ پنجره‌ها و تب‌های Chrome ببندید و دوباره امتحان کنید.</p>
+    <button id="check">بررسی</button>
+    <ul id="checkResult"></ul>
+  </section>
+
+  <section>
+    <strong>۲. پاک‌کردن نسخهٔ ذخیره‌شدهٔ اپ</strong>
+    <p class="muted">نسخهٔ آفلاین و service worker پاک می‌شود و اپ دفعهٔ بعد تازه از اینترنت بارگذاری می‌شود. داده‌های شما سر جایشان می‌مانند.</p>
+    <button id="reset">پاک‌کردن و بازکردن دوبارهٔ اپ</button>
+    <p id="resetResult" class="muted"></p>
+  </section>
+
+  <button class="secondary" onclick="location.href='./'">بازگشت به اپ</button>
+  <pre id="info"></pre>
+</main>
+<script>
+  const withTimeout = (p, ms) => Promise.race([p, new Promise((_, r) => setTimeout(() => r(new Error('timeout')), ms))]);
+  const li = (text, bad) => { const el = document.createElement('li'); el.textContent = text; if (bad) el.className = 'bad'; return el; };
+
+  document.getElementById('check').onclick = async () => {
+    const out = document.getElementById('checkResult');
+    out.replaceChildren(li('در حال بررسی…'));
+    let db;
+    try {
+      db = await withTimeout(new Promise((resolve, reject) => {
+        const req = indexedDB.open('hamsokhan');
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+        req.onblocked = () => reject(new Error('blocked'));
+      }), 4000);
+    } catch (e) {
+      out.replaceChildren(li('حافظه باز نشد (' + (e.message === 'timeout' ? 'پاسخ نداد' : e.message) + '). اپ را در همهٔ پنجره‌ها ببندید و دوباره امتحان کنید.', true));
+      return;
+    }
+    const names = [...db.objectStoreNames];
+    out.replaceChildren();
+    for (const name of names) {
+      try {
+        const count = await withTimeout(new Promise((resolve, reject) => {
+          const r = db.transaction(name, 'readonly').objectStore(name).count();
+          r.onsuccess = () => resolve(r.result);
+          r.onerror = () => reject(r.error);
+        }), 3000);
+        out.append(li(name + ': سالم (' + count + ' مورد)'));
+      } catch (e) {
+        out.append(li(name + ': ' + (e.message === 'timeout' ? 'قفل مانده — پاسخ نداد' : e.message), true));
+      }
+    }
+    db.close();
+  };
+
+  document.getElementById('reset').onclick = async () => {
+    const out = document.getElementById('resetResult');
+    try {
+      const regs = await navigator.serviceWorker?.getRegistrations?.() ?? [];
+      await Promise.all(regs.map((r) => r.unregister()));
+      const keys = await caches.keys();
+      await Promise.all(keys.map((k) => caches.delete(k)));
+      out.textContent = 'انجام شد (' + regs.length + ' service worker، ' + keys.length + ' کش). در حال بازکردن اپ…';
+      setTimeout(() => location.replace('./?fresh=' + Date.now()), 800);
+    } catch (e) {
+      out.textContent = 'انجام نشد: ' + e.message;
+    }
+  };
+
+  navigator.storage?.estimate?.().then((e) => {
+    document.getElementById('info').textContent = 'فضای استفاده‌شده: ' + Math.round((e.usage || 0) / 1024) + ' کیلوبایت';
+  });
+</script>
+</body>
+</html>

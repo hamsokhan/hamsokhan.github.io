@@ -5,7 +5,7 @@ import { anchorSection, ExplainedSchema, type Explained } from '../../shared/anc
 import { LIMITS, ModelOutput, PROMPT_VERSION, type ErrorCode, type ModelOutputs, type Section } from '../../shared/contract';
 import { CHAT_TASK, poemBlock, REFLECT_TASK, SECTION_TASK, type PoemContext } from '../../shared/prompts';
 import type { Poem } from '../data/library';
-import { db, getMeta, setMeta, type AnalysisRecord } from '../lib/db';
+import { getMeta, putRelaxed, setMeta, withDb, type AnalysisRecord } from '../lib/db';
 import { notifyChange } from '../lib/store';
 
 export const MOCK = import.meta.env.DEV && import.meta.env.VITE_HOOSHVARE_MOCK === '1';
@@ -120,7 +120,8 @@ async function call<K extends keyof typeof ModelOutput>(kind: K, user: string, o
 export const analysisKey = (p: Poem, n: number, section: Section) => `${p.id}|${p.textVersion}|${n}|${section}|${PROMPT_VERSION}`;
 
 export async function cachedAnalysis(p: Poem, n: number, section: Section): Promise<AnalysisRecord | undefined> {
-  const rec = await (await db()).get('analyses', analysisKey(p, n, section));
+  // Short limit: if the database is stuck, show the request button rather than wait.
+  const rec = await withDb((d) => d.get('analyses', analysisKey(p, n, section)), 3_000);
   if (!rec) return undefined;
   // Re-validate stored data; a record from an incompatible version is ignored, not shown.
   return ExplainedSchema[section].safeParse(rec.data).success ? rec : undefined;
@@ -143,7 +144,7 @@ export function requestAnalysis(p: Poem, n: number, section: Section): Promise<A
     const data = anchorSection(section, out.data as never, misras);
     if (!ExplainedSchema[section].safeParse(data).success) throw fail('invalid_output');
     const rec: AnalysisRecord = { key, poemId: p.id, textVersion: p.textVersion, n, section, data, model: out.model, promptVersion: PROMPT_VERSION, createdAt: Date.now(), demo: out.demo || undefined };
-    await (await db()).put('analyses', rec);
+    await putRelaxed('analyses', rec);
     return rec;
   })().finally(() => inflight.delete(key));
   inflight.set(key, run);
@@ -171,7 +172,7 @@ export async function sendReflection(p: Poem, n: number, reflection: string, sig
 // ---- Issue reports: kept on this device, exportable with the backup ----
 
 export async function saveReport(p: Poem, n: number, section: Section, model: string | null, analysis: unknown, message: string) {
-  await (await db()).put('reports', {
+  await putRelaxed('reports', {
     id: crypto.randomUUID(), poemId: p.id, textVersion: p.textVersion, n, section, model, message: message.slice(0, LIMITS.maxReportChars), analysis, createdAt: Date.now(),
   });
   notifyChange();

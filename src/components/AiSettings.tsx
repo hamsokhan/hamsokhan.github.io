@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { DAILY_CAPS, getAiSettings, MODELS, setAiSettings } from '../ai/client';
-import { db } from '../lib/db';
+import { deleteRelaxed, withDb } from '../lib/db';
 import { faAgo, faNum } from '../lib/format';
 import { notifyChange, useQuery } from '../lib/store';
 import { Icon, Sheet, useOverlay, useToast } from './ui';
@@ -10,7 +10,7 @@ const SECTION_LABEL: Record<string, string> = { simple: 'معنی ساده', wor
 /** Key, model and daily cap for Hooshvare. The key stays on this device only. */
 export function AiSettingsCard() {
   const ai = useQuery(getAiSettings, []);
-  const reports = useQuery(async () => (await db()).getAll('reports'), []);
+  const reports = useQuery(() => withDb((d) => d.getAll('reports')), []);
   const reportsSheet = useOverlay('reports');
   const toast = useToast();
   const [draft, setDraft] = useState('');
@@ -127,7 +127,7 @@ export function AiSettingsCard() {
             <li key={r.id} className="text-sm border-b border-line/50 pb-3">
               <p className="text-xs text-muted">{r.poemId} · بیت {faNum(r.n)} · {SECTION_LABEL[r.section]} · {faAgo(r.createdAt)}</p>
               <p className="mt-1">{r.message || 'بدون توضیح'}</p>
-              <button type="button" className="text-xs text-danger mt-1 py-1" onClick={async () => { await (await db()).delete('reports', r.id); notifyChange(); }}>حذف این گزارش</button>
+              <button type="button" className="text-xs text-danger mt-1 py-1" onClick={async () => { await deleteRelaxed('reports', r.id); notifyChange(); }}>حذف این گزارش</button>
             </li>
           ))}
         </ul>

@@ -5,6 +5,8 @@ import { defineConfig } from 'vitest/config';
 import { VitePWA } from 'vite-plugin-pwa';
 import pkg from './package.json' with { type: 'json' };
 
+let resolvedPlugins: readonly { name: string }[] = [];
+
 function buildId() {
   try {
     return execFileSync('git', ['rev-parse', '--short', 'HEAD'], { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
@@ -38,6 +40,9 @@ export default defineConfig({
         start_url: './',
         scope: './',
         display: 'standalone',
+        // Re-opening the app (icon, share, link) reuses the open window instead of a second copy,
+        // and keeps the reader where they were.
+        launch_handler: { client_mode: ['focus-existing', 'auto'] },
         // Android paints the system navigation bar of the installed app with
         // these static colours (they cannot follow the theme). They match the
         // dark bottom bar, because the owner's phone runs in dark mode.
@@ -54,7 +59,9 @@ export default defineConfig({
         // personal data are never put in the service-worker cache (personal
         // data lives in IndexedDB).
         globPatterns: ['**/*.{js,css,html,woff2,png,svg,jpg}'],
-        globIgnores: ['**/fa-brands-*', '**/fa-v4compatibility*', '**/*.ttf'],
+        // fix.html is never cached: it must work even when the cached app is broken.
+        globIgnores: ['**/fa-brands-*', '**/fa-v4compatibility*', '**/*.ttf', 'fix.html'],
+        navigateFallbackDenylist: [/fix\.html$/],
         navigateFallback: 'index.html',
         cleanupOutdatedCaches: true,
         skipWaiting: true,
@@ -62,6 +69,19 @@ export default defineConfig({
         runtimeCaching: [],
       },
     }),
+    {
+      // The plugin adds the web manifest to the precache itself; take it out so the
+      // installed app always reads the current manifest from the network.
+      name: 'hamsokhan-manifest-not-precached',
+      // buildStart runs after every plugin's configResolved, when the PWA options exist.
+      buildStart() {
+        const pwa = resolvedPlugins.find((p) => p.name === 'vite-plugin-pwa') as { api?: { extendManifestEntries(fn: (e: (string | { url: string })[]) => (string | { url: string })[]): void } } | undefined;
+        pwa?.api?.extendManifestEntries((entries) => entries.filter((e) => (typeof e === 'string' ? e : e.url) !== 'manifest.webmanifest'));
+      },
+      configResolved(config) {
+        resolvedPlugins = config.plugins;
+      },
+    },
   ],
   test: {
     environment: 'jsdom',

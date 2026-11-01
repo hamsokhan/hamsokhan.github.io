@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { Link, useSearchParams } from 'react-router';
 import { searchKey } from '../../shared/text';
-import { BottomNav, Icon, Spinner } from '../components/ui';
+import { BottomNav, Icon, LoadError, Spinner } from '../components/ui';
 import { POETS, sourceLine, type Poem } from '../data/library';
 import { allPoems, useQuery } from '../lib/store';
 
@@ -72,6 +72,7 @@ export default function Library() {
 
       <main className="px-6 max-w-3xl mx-auto">
         {poems.status === 'loading' && <Spinner label="در حال بارگذاری…" />}
+        {poems.status === 'error' && <LoadError />}
         {poems.status === 'ready' && list.length === 0 && (
           <div className="py-16 text-center">
             <p className="text-base font-bold text-green mb-2">{filter === 'mine' && !q ? 'هنوز شعری وارد نکرده‌اید' : 'نتیجه‌ای پیدا نشد'}</p>

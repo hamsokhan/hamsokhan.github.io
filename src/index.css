@@ -51,6 +51,8 @@ body {
   background-color: var(--color-paper);
   color: var(--color-ink);
   -webkit-tap-highlight-color: transparent;
+  /* No pull-to-refresh or rubber-band bounce inside the installed app. */
+  overscroll-behavior-y: none;
 }
 
 :focus-visible {

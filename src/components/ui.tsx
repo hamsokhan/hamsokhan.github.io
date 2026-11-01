@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import { NavLink, useLocation, useNavigate, useSearchParams } from 'react-router';
+import { retryQueries } from '../lib/store';
 
 // ---- Icons (Font Awesome Free, bundled locally) ----
 
@@ -152,11 +153,32 @@ export function AiBadge({ demo }: { demo?: boolean }) {
   );
 }
 
+/** Shown only if the wait passes 300 ms, so quick loads don't flash a spinner. */
 export function Spinner({ label }: { label: string }) {
+  const [visible, setVisible] = useState(false);
+  useEffect(() => {
+    const t = setTimeout(() => setVisible(true), 300);
+    return () => clearTimeout(t);
+  }, []);
   return (
-    <div role="status" className="flex items-center gap-3 text-sm text-muted py-2">
+    <div role="status" className={`flex items-center gap-3 text-sm text-muted py-2 ${visible ? '' : 'invisible'}`}>
       <span className="w-4 h-4 rounded-full border-2 border-line border-t-green animate-spin" aria-hidden="true" />
       {label}
+    </div>
+  );
+}
+
+/** Replaces an endless «loading» when local data could not be read. */
+export function LoadError() {
+  return (
+    <div role="alert" className="mx-6 my-10 rounded-2xl border border-line bg-card p-6 text-center">
+      <p className="text-base font-bold text-green mb-2">خواندن داده‌ها انجام نشد</p>
+      <p className="text-sm text-muted leading-relaxed mb-5">حافظهٔ اپ به‌موقع پاسخ نداد. داده‌های شما سالم است؛ دوباره امتحان کنید.</p>
+      <div className="flex justify-center gap-6 text-sm font-bold">
+        <button type="button" className="text-green underline underline-offset-4 py-2" onClick={retryQueries}>تلاش دوباره</button>
+        <button type="button" className="text-green underline underline-offset-4 py-2" onClick={() => window.location.reload()}>بارگذاری دوبارهٔ اپ</button>
+      </div>
+      <a href="./fix.html" className="block mt-4 text-xs text-muted underline underline-offset-4">اگر باز هم درست نشد: صفحهٔ تعمیر</a>
     </div>
   );
 }

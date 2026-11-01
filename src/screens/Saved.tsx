@@ -1,5 +1,5 @@
 import { useNavigate, useSearchParams } from 'react-router';
-import { BottomNav, Icon, Spinner, useToast } from '../components/ui';
+import { BottomNav, Icon, LoadError, Spinner, useToast } from '../components/ui';
 import { faAgo } from '../lib/format';
 import { savedLists, setPoemSaved, setVerseSaved, useQuery } from '../lib/store';
 
@@ -47,7 +47,7 @@ export default function Saved() {
 
       <main className="px-6 pt-6 max-w-3xl mx-auto" role="tabpanel">
         {lists.status === 'loading' && <Spinner label="در حال بارگذاری…" />}
-        {lists.status === 'error' && <p className="text-sm text-danger">خواندن ذخیره‌ها ممکن نشد.</p>}
+        {lists.status === 'error' && <LoadError />}
         {lists.status === 'ready' && tab === 'verses' && (lists.value.verses.length === 0 ? empty : (
           <ul>
             {lists.value.verses.map((s) => (
@@ -55,7 +55,11 @@ export default function Saved() {
                 <div className="flex justify-between items-start mb-3">
                   <span className="text-[10px] text-muted">{s.poem.poetName ?? 'شاعر نامشخص'} · {s.poem.title ?? 'بی‌عنوان'}</span>
                   <button type="button" aria-label="برداشتن از ذخیره‌ها" className="text-muted -m-2 p-2" onClick={async () => {
-                    await setVerseSaved(s.poem.id, s.n, false);
+                    try {
+                      await setVerseSaved(s.poem.id, s.n, false);
+                    } catch {
+                      return toast({ text: 'برداشتن انجام نشد. دوباره امتحان کنید.' });
+                    }
                     toast({ text: 'بیت از ذخیره‌ها برداشته شد', action: { label: 'واگرد', run: () => void setVerseSaved(s.poem.id, s.n, true, s.savedAt) } });
                   }}>
                     <Icon name="xmark" className="text-xs" />
@@ -79,7 +83,11 @@ export default function Saved() {
                 <div className="flex justify-between items-start mb-3">
                   <span className="text-[10px] text-muted">{s.poem.poetName ?? 'شاعر نامشخص'}</span>
                   <button type="button" aria-label="برداشتن از ذخیره‌ها" className="text-muted -m-2 p-2" onClick={async () => {
-                    await setPoemSaved(s.poem.id, false);
+                    try {
+                      await setPoemSaved(s.poem.id, false);
+                    } catch {
+                      return toast({ text: 'برداشتن انجام نشد. دوباره امتحان کنید.' });
+                    }
                     toast({ text: 'شعر از ذخیره‌ها برداشته شد', action: { label: 'واگرد', run: () => void setPoemSaved(s.poem.id, true, s.savedAt) } });
                   }}>
                     <Icon name="xmark" className="text-xs" />
