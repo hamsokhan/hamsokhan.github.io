@@ -1,9 +1,10 @@
 // Reads and writes over the local database, plus a tiny change signal so
 // screens re-read after a write (also across tabs).
 import { useEffect, useState } from 'react';
+import { ExplainedSchema } from '../../shared/anchor';
 import { PROMPT_VERSION, type Section } from '../../shared/contract';
 import { LIBRARY, libraryPoem, type Poem, type Verse } from '../data/library';
-import { versesFingerprint } from '../../shared/text';
+import { searchKey, versesFingerprint } from '../../shared/text';
 import { closeDb, deleteRelaxed, putRelaxed, userPoemToPoem, verseKey, withDb, type AnalysisRecord, type ConversationRecord, type ProgressRecord, type ReflectionRecord } from './db';
 
 const channel = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('hamsokhan-data') : null;
@@ -209,6 +210,34 @@ export async function explainedList(): Promise<ExplainedView[]> {
     groups.set(key, g);
   }
   return [...groups.values()].sort((a, b) => b.updatedAt - a.updatedAt);
+}
+
+export interface GlossaryUse { poem: Poem; n: number; meaning: string; note: string | null }
+export interface GlossaryEntry { word: string; uses: GlossaryUse[] }
+
+/**
+ * Every word the reader has had explained, built only from stored explanations.
+ * The same word in two verses stays one entry with both meanings, because the
+ * meaning in each verse is the point: it is not a dictionary definition.
+ */
+export async function glossary(): Promise<GlossaryEntry[]> {
+  const all = await withDb((d) => d.getAll('analyses'));
+  const entries = new Map<string, GlossaryEntry>();
+  for (const a of all) {
+    if (a.section !== 'words') continue;
+    const poem = await getPoem(a.poemId);
+    if (!poem || !poem.verses[a.n - 1] || !isCurrent(a, poem)) continue;
+    const parsed = ExplainedSchema.words.safeParse(a.data);
+    if (!parsed.success) continue;
+    for (const item of parsed.data.items) {
+      const key = searchKey(item.ref.quote);
+      if (!key) continue;
+      const entry = entries.get(key) ?? { word: item.ref.quote, uses: [] };
+      entry.uses.push({ poem, n: a.n, meaning: item.meaningHere, note: item.note });
+      entries.set(key, entry);
+    }
+  }
+  return [...entries.values()].sort((x, y) => x.word.localeCompare(y.word, 'fa'));
 }
 
 export async function deleteAnalyses(records: AnalysisRecord[]) {

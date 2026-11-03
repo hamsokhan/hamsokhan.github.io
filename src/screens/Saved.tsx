@@ -1,14 +1,16 @@
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
 import { BottomNav, Icon, IconButton, LoadError, Spinner, useToast } from '../components/ui';
 import type { Section } from '../../shared/contract';
+import { searchKey } from '../../shared/text';
 import { faAgo, faNum } from '../lib/format';
-import { conversationList, deleteAnalyses, deleteConversation, deleteReflection, explainedList, putConversation, putReflection, reflectionList, restoreAnalyses, savedLists, setPoemSaved, setVerseSaved, useQuery } from '../lib/store';
+import { conversationList, deleteAnalyses, deleteConversation, deleteReflection, explainedList, glossary, putConversation, putReflection, reflectionList, restoreAnalyses, savedLists, setPoemSaved, setVerseSaved, useQuery, type GlossaryEntry } from '../lib/store';
 
 const TABS = [
   { id: 'verses', label: 'بیت‌ها' },
   { id: 'poems', label: 'شعرها' },
   { id: 'explained', label: 'توضیح‌ها' },
+  { id: 'glossary', label: 'واژه‌نامه' },
   { id: 'chats', label: 'گفت‌وگوها' },
   { id: 'reflections', label: 'برداشت‌ها' },
 ] as const;
@@ -18,6 +20,7 @@ const EMPTY: Record<Tab, { title: string; text: string }> = {
   verses: { title: 'هنوز بیتی ذخیره نکرده‌اید', text: 'در شعرخوان یک بیت را انتخاب کنید و نشان ذخیره را بزنید.' },
   poems: { title: 'هنوز شعری ذخیره نکرده‌اید', text: 'نشان بالای هر شعر آن را اینجا نگه می‌دارد.' },
   explained: { title: 'هنوز توضیحی نگرفته‌اید', text: 'هر توضیحی که بگیرید اینجا می‌ماند و بدون اینترنت هم باز می‌شود.' },
+  glossary: { title: 'واژه‌نامهٔ شما هنوز خالی است', text: 'در توضیح هر بیت، بخش «واژه‌ها» را باز کنید. واژه‌ها با معنی‌شان در همان بیت اینجا جمع می‌شوند.' },
   chats: { title: 'هنوز گفت‌وگویی ندارید', text: 'گفت‌وگوهای شما دربارهٔ هر بیت اینجا جمع می‌شوند.' },
   reflections: { title: 'هنوز برداشتی ننوشته‌اید', text: 'برداشت‌هایی که دربارهٔ بیت‌ها می‌نویسید اینجا می‌مانند.' },
 };
@@ -60,11 +63,43 @@ function Empty({ tab }: { tab: Tab }) {
   );
 }
 
+function Glossary({ entries }: { entries: GlossaryEntry[] }) {
+  const [q, setQ] = useState('');
+  const key = searchKey(q);
+  const shown = key ? entries.filter((e) => searchKey(e.word).includes(key) || e.uses.some((u) => searchKey(u.meaning).includes(key))) : entries;
+  return (
+    <>
+      <p className="text-sm text-muted leading-relaxed mb-4">{faNum(entries.length)} واژه و ترکیب از توضیح‌هایی که گرفته‌اید. هر معنی مخصوص همان بیت است و واژه ممکن است جای دیگر معنای دیگری داشته باشد.</p>
+      <label htmlFor="glossary-search" className="sr-only">جست‌وجو در واژه‌نامه</label>
+      <input id="glossary-search" type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="جست‌وجو در واژه یا معنی" className="w-full bg-card border border-line rounded-xl py-3 px-4 text-sm mb-4 focus:outline-none focus:border-green" />
+      {shown.length === 0 && <p className="text-sm text-muted text-center py-8">این واژه هنوز در واژه‌نامهٔ شما نیست.</p>}
+      <ul>
+        {shown.map((e) => (
+          <li key={e.word} className="bg-card border border-line rounded-[1.25rem] p-5 mb-4">
+            <h3 className="text-lg font-bold text-green mb-2">{e.word}</h3>
+            <ul className="space-y-3">
+              {e.uses.map((u, i) => (
+                <li key={i} className="text-sm leading-relaxed">
+                  <p>{u.meaning}</p>
+                  {u.note && <p className="text-xs text-muted mt-1">{u.note}</p>}
+                  <Link to={`/poem/${u.poem.id}/v/${u.n}`} className="inline-block text-xs text-green underline underline-offset-4 py-2">{u.poem.poetName ?? 'شاعر نامشخص'} · {u.poem.title ?? 'بی‌عنوان'} · بیت {faNum(u.n)}</Link>
+                </li>
+              ))}
+            </ul>
+          </li>
+        ))}
+      </ul>
+      <p className="text-xs text-muted text-center leading-relaxed">معنی‌ها را هوشواره ساخته و بازبینی انسانی نشده‌اند.</p>
+    </>
+  );
+}
+
 export default function Saved() {
   const [params, setParams] = useSearchParams();
   const tab: Tab = TABS.find((t) => t.id === params.get('tab'))?.id ?? 'verses';
   const lists = useQuery(savedLists, []);
   const explained = useQuery(explainedList, []);
+  const words = useQuery(glossary, []);
   const chats = useQuery(conversationList, []);
   const reflections = useQuery(reflectionList, []);
   const navigate = useNavigate();
@@ -80,7 +115,7 @@ export default function Saved() {
     toast({ text: done, action: { label: 'واگرد', run: () => void restore().catch(() => toast({ text: 'واگرد انجام نشد.' })) } });
   };
 
-  const current = { verses: lists, poems: lists, explained, chats, reflections }[tab];
+  const current = { verses: lists, poems: lists, explained, glossary: words, chats, reflections }[tab];
 
   return (
     <div className="min-h-dvh pb-28">
@@ -162,6 +197,8 @@ export default function Saved() {
             ))}
           </ul>
         ))}
+
+        {tab === 'glossary' && words.status === 'ready' && (words.value.length === 0 ? <Empty tab={tab} /> : <Glossary entries={words.value} />)}
 
         {tab === 'chats' && chats.status === 'ready' && (chats.value.length === 0 ? <Empty tab={tab} /> : (
           <ul>

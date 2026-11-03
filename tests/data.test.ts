@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { exportBackup, mergeBackup, parseBackupFile } from '../src/lib/backup';
 import { db } from '../src/lib/db';
 import { draftFromText, draftProblems, setVerseStart, versesFromDraft } from '../src/lib/importPoem';
-import { addUserPoem, conversationList, deleteAnalyses, deleteUserPoem, explainedList, getPoem, lastRead, libraryMarks, poemMarks, putConversation, putReflection, reflectionList, restoreAnalyses, savedLists, setPoemSaved, setProgress, setVerseSaved, updateUserPoem, verseReflections } from '../src/lib/store';
+import { addUserPoem, conversationList, deleteAnalyses, deleteUserPoem, explainedList, getPoem, glossary, lastRead, libraryMarks, poemMarks, putConversation, putReflection, reflectionList, restoreAnalyses, savedLists, setPoemSaved, setProgress, setVerseSaved, updateUserPoem, verseReflections } from '../src/lib/store';
 import { PROMPT_VERSION } from '../shared/contract';
 import type { AnalysisRecord } from '../src/lib/db';
 
@@ -130,6 +130,19 @@ describe('reviewing and editing local data', () => {
     expect(await explainedList()).toEqual([]);
     await restoreAnalyses([rec]);
     expect(await explainedList()).toHaveLength(1);
+  });
+
+  it('builds a glossary from stored word explanations, keeping each verse meaning', async () => {
+    const id = await addUserPoem({ title: null, poet: null, verses });
+    const poem = (await getPoem(id))!;
+    const words = (n: number, quote: string, meaningHere: string): AnalysisRecord => ({
+      ...analysis(id, poem.textVersion, n), key: `${id}|${poem.textVersion}|${n}|words|${PROMPT_VERSION}`, section: 'words',
+      data: { items: [{ ref: { quote, anchor: null }, meaningHere, note: null, alternatives: [] }] },
+    });
+    await restoreAnalyses([words(1, 'می', 'شراب'), words(2, 'مي', 'عشق'), analysis(id, poem.textVersion, 1)]);
+    const g = await glossary();
+    expect(g).toHaveLength(1); // ی/ي count as one word
+    expect(g[0].uses.map((u) => [u.n, u.meaning]).sort()).toEqual([[1, 'شراب'], [2, 'عشق']]);
   });
 
   it('lists only non-empty conversations of the current text', async () => {
