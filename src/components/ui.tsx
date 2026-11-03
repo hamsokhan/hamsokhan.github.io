@@ -8,9 +8,9 @@ export function Icon({ name, style = 'solid', className = '' }: { name: string; 
   return <i className={`fa-${style} fa-${name} ${className}`} aria-hidden="true" />;
 }
 
-export function IconButton({ icon, label, onClick, style, className = '', pressed }: { icon: string; label: string; onClick: () => void; style?: 'solid' | 'regular'; className?: string; pressed?: boolean }) {
+export function IconButton({ icon, label, onClick, style, className = '', pressed, disabled }: { icon: string; label: string; onClick: () => void; style?: 'solid' | 'regular'; className?: string; pressed?: boolean; disabled?: boolean }) {
   return (
-    <button type="button" aria-label={label} title={label} aria-pressed={pressed} onClick={onClick} className={`w-11 h-11 flex items-center justify-center rounded-full hover:bg-line/30 transition-colors shrink-0 ${className}`}>
+    <button type="button" aria-label={label} title={label} aria-pressed={pressed} disabled={disabled} onClick={onClick} className={`w-11 h-11 flex items-center justify-center rounded-full hover:bg-line/30 transition-colors shrink-0 disabled:text-line disabled:hover:bg-transparent ${className}`}>
       <Icon name={icon} style={style} className="text-lg" />
     </button>
   );
@@ -118,7 +118,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   );
 }
 
-// ---- Bottom navigation (Discover / Library / Saved) ----
+// ---- Bottom navigation (Home / Library / Saved) ----
 
 export function BottomNav() {
   const item = (to: string, icon: string, label: string) => (
@@ -126,7 +126,7 @@ export function BottomNav() {
       {({ isActive }) => (
         <>
           <Icon name={icon} style={isActive || icon === 'book' ? 'solid' : 'regular'} className="text-xl" />
-          <span className={`text-[10px] tracking-wide ${isActive ? 'font-bold' : 'font-medium'}`}>{label}</span>
+          <span className={`text-xs tracking-wide ${isActive ? 'font-bold' : 'font-medium'}`}>{label}</span>
         </>
       )}
     </NavLink>
@@ -134,7 +134,7 @@ export function BottomNav() {
   return (
     <nav aria-label="بخش‌های اصلی" className="fixed bottom-0 left-0 right-0 bg-card border-t border-line z-20 pb-[env(safe-area-inset-bottom)]">
       <div className="flex justify-around items-center py-3 px-2 max-w-3xl mx-auto">
-        {item('/', 'compass', 'کشف شعر')}
+        {item('/', 'house', 'خانه')}
         {item('/library', 'book', 'کتابخانه')}
         {item('/saved', 'bookmark', 'ذخیره‌ها')}
       </div>
@@ -147,8 +147,8 @@ export function BottomNav() {
 export function AiBadge({ demo }: { demo?: boolean }) {
   return (
     <span className="inline-flex items-center gap-2">
-      <span className="text-[10px] text-muted">{demo ? 'پاسخ نمونه — هوشوارهٔ واقعی نیست' : 'توضیح هوشواره'}</span>
-      <span className={`text-[0.65rem] font-bold px-[0.4rem] py-[0.1rem] rounded ${demo ? 'bg-danger text-card' : 'bg-green text-on-green'}`}>{demo ? 'نمونه' : 'AI'}</span>
+      <span className="text-xs text-muted">{demo ? 'پاسخ نمونه — هوشوارهٔ واقعی نیست' : 'توضیح هوشواره'}</span>
+      <span className={`text-xs font-bold px-[0.4rem] py-[0.1rem] rounded ${demo ? 'bg-danger text-card' : 'bg-green text-on-green'}`}>{demo ? 'نمونه' : 'AI'}</span>
     </span>
   );
 }

@@ -2,7 +2,8 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState, ty
 import type { Section } from '../../shared/contract';
 import { Sheet } from '../components/ui';
 import type { Poem } from '../data/library';
-import type { AnalysisRecord } from '../lib/db';
+import { deleteRelaxed, putRelaxed, type AnalysisRecord } from '../lib/db';
+import { notifyChange } from '../lib/store';
 import { cachedAnalysis, errorMessage, HooshvareError, getAiSettings, giveConsent, hasConsent, MOCK, requestAnalysis } from './client';
 
 // ---- One-time notice before the first request to the AI service ----
@@ -83,5 +84,36 @@ export function useSection(poem: Poem, n: number, section: Section) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key, gate]);
 
-  return { state, request };
+  /** A fresh answer replaces the stored one only on success. Returns the error text on failure. */
+  const regenerate = async (): Promise<string | null> => {
+    if (state.status !== 'ready' || !(await gate())) return null;
+    const prev = state;
+    const mine = key;
+    setState({ status: 'loading' });
+    try {
+      const rec = await requestAnalysis(poem, n, section);
+      if (current.current === mine) setState({ status: 'ready', rec });
+      return null;
+    } catch (e) {
+      if (current.current === mine) setState(prev);
+      return errorMessage(e);
+    }
+  };
+
+  /** Deletes the stored answer and returns a function that puts it back. */
+  const remove = async (): Promise<(() => Promise<void>) | null> => {
+    if (state.status !== 'ready') return null;
+    const { rec } = state;
+    const mine = key;
+    await deleteRelaxed('analyses', rec.key);
+    notifyChange();
+    setState({ status: 'idle' });
+    return async () => {
+      await putRelaxed('analyses', rec);
+      notifyChange();
+      if (current.current === mine) setState({ status: 'ready', rec });
+    };
+  };
+
+  return { state, request, regenerate, remove };
 }

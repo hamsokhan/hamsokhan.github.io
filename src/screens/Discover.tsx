@@ -1,4 +1,5 @@
 import { Link, useNavigate } from 'react-router';
+import { getAiSettings, MOCK } from '../ai/client';
 import garden from '../assets/garden.jpg';
 import { BottomNav, Icon, IconButton } from '../components/ui';
 import { libraryPoem, POETS } from '../data/library';
@@ -13,6 +14,7 @@ const SUGGESTIONS = [
 export default function Discover() {
   const navigate = useNavigate();
   const last = useQuery(lastRead, []);
+  const ai = useQuery(getAiSettings, []);
 
   return (
     <div className="min-h-dvh pb-28">
@@ -22,46 +24,50 @@ export default function Discover() {
       </header>
 
       <div className="max-w-3xl mx-auto">
-        <section className="px-6 mb-8">
-          <div className="w-full h-48 sm:h-64 rounded-2xl overflow-hidden bg-card editorial-shadow border border-line/50">
+        <section className="px-6 mb-6">
+          <div className="w-full h-24 sm:h-32 rounded-2xl overflow-hidden bg-card border border-line/50">
             <img src={garden} alt="" className="w-full h-full object-cover opacity-90 dark:opacity-75" />
           </div>
         </section>
 
-        <section className="px-6 mb-10" aria-labelledby="continue-title">
-          <div className="flex items-center justify-between mb-4">
-            <h2 id="continue-title" className="text-lg font-bold text-green">ادامه خواندن</h2>
-            {last.status === 'ready' && last.value && (
-              <span className="text-xs text-muted">بیت {faNum(last.value.n)} از {faNum(last.value.poem.verses.length)}</span>
-            )}
-          </div>
-          {last.status === 'ready' && (
-            <div className="bg-card p-6 rounded-2xl editorial-shadow border border-line/50 relative overflow-hidden">
-              <div className="absolute top-0 right-0 p-4 opacity-10" aria-hidden="true">
-                <Icon name="leaf" className="text-green text-4xl" />
-              </div>
-              {last.value ? (
-                <>
-                  <p className="text-muted text-sm mb-2">{last.value.poem.poetName ?? 'شاعر نامشخص'}</p>
-                  <p className="text-lg leading-relaxed mb-6 font-medium">
-                    {last.value.poem.verses[last.value.n - 1].misras.map((m, i) => <span key={i} className="misra">{m}</span>)}
-                  </p>
-                  <button type="button" onClick={() => navigate(`/poem/${last.value!.poem.id}?v=${last.value!.n}`)} className="w-full py-3 bg-green text-on-green rounded-xl font-medium hover:bg-green-deep transition-colors flex items-center justify-center gap-2">
-                    ادامه شعر
-                    <Icon name="arrow-left" className="text-sm" />
-                  </button>
-                </>
-              ) : (
-                <>
-                  <p className="text-base leading-relaxed mb-6 font-medium">هنوز شعری را شروع نکرده‌اید. یکی از پیشنهادهای زیر یا کتابخانه، جای خوبی برای آغاز است.</p>
-                  <button type="button" onClick={() => navigate('/library')} className="w-full py-3 bg-green text-on-green rounded-xl font-medium hover:bg-green-deep transition-colors flex items-center justify-center gap-2">
-                    رفتن به کتابخانه
-                    <Icon name="arrow-left" className="text-sm" />
-                  </button>
-                </>
-              )}
+        {!MOCK && ai.status === 'ready' && !ai.value.apiKey && (
+          <section className="px-6 mb-6">
+            <div className="bg-card border border-line rounded-2xl p-4 text-sm leading-relaxed">
+              <p>خواندن شعر بدون کلید هم کار می‌کند. برای گرفتن توضیح و گفت‌وگو، کلید Claude خودتان را در تنظیمات وارد کنید.</p>
+              <Link to="/settings" className="inline-block text-green font-bold underline underline-offset-4 py-2 mt-1">رفتن به تنظیمات</Link>
             </div>
-          )}
+          </section>
+        )}
+
+        {last.status === 'ready' && last.value && (
+          <section className="px-6 mb-8" aria-labelledby="continue-title">
+            <div className="flex items-center justify-between mb-3">
+              <h2 id="continue-title" className="text-lg font-bold text-green">ادامه خواندن</h2>
+              <span className="text-xs text-muted">بیت {faNum(last.value.n)} از {faNum(last.value.poem.verses.length)}</span>
+            </div>
+            <div className="bg-card p-5 rounded-2xl editorial-shadow border border-line/50">
+              <p className="text-sm font-bold text-green">{last.value.poem.title ?? 'شعر بی‌عنوان'}</p>
+              <p className="text-muted text-xs mb-3">{last.value.poem.poetName ?? 'شاعر نامشخص'}</p>
+              <p className="text-lg mb-5 font-medium">
+                {last.value.poem.verses[last.value.n - 1].misras.map((m, i) => <span key={i} className="misra">{m}</span>)}
+              </p>
+              <button type="button" onClick={() => navigate(`/poem/${last.value!.poem.id}?v=${last.value!.n}`)} className="w-full py-3 bg-green text-on-green rounded-xl font-medium hover:bg-green-deep transition-colors flex items-center justify-center gap-2">
+                ادامه شعر
+                <Icon name="arrow-left" className="text-sm" />
+              </button>
+            </div>
+          </section>
+        )}
+
+        <section className="px-6 mb-8 grid grid-cols-2 gap-3" aria-label="ورودی‌ها">
+          <Link to="/library" className="bg-card border border-line/50 rounded-2xl p-4 flex items-center justify-center gap-2 text-sm font-medium hover:border-green/30 transition-colors">
+            <Icon name="book" className="text-green" />
+            کتابخانه
+          </Link>
+          <Link to="/import" className="bg-card border border-line/50 rounded-2xl p-4 flex items-center justify-center gap-2 text-sm font-medium hover:border-green/30 transition-colors">
+            <Icon name="paste" style="regular" className="text-green" />
+            واردکردن شعر
+          </Link>
         </section>
 
         <section className="px-6 mb-10" aria-labelledby="start-title">
@@ -74,7 +80,7 @@ export default function Discover() {
                 </div>
                 <div>
                   <h3 className="font-bold text-base mb-1">{s.title}</h3>
-                  <p className="text-sm text-muted leading-relaxed line-clamp-2">{s.text}</p>
+                  <p className="text-sm text-muted leading-relaxed">{s.text}</p>
                 </div>
               </Link>
             ))}
@@ -92,12 +98,6 @@ export default function Discover() {
               </Link>
             ))}
           </div>
-        </section>
-
-        <section className="px-6 mb-8 text-center">
-          <Link to="/import" className="text-green text-sm font-medium underline underline-offset-4 decoration-green/30 hover:decoration-green transition-all">
-            شعر خودت را وارد کن
-          </Link>
         </section>
       </div>
       <BottomNav />

@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router';
 import { DAILY_CAPS, getAiSettings, MODELS, setAiSettings } from '../ai/client';
 import { deleteRelaxed, withDb } from '../lib/db';
 import { faAgo, faNum } from '../lib/format';
-import { notifyChange, useQuery } from '../lib/store';
+import { allPoems, notifyChange, useQuery } from '../lib/store';
 import { Icon, Sheet, useOverlay, useToast } from './ui';
 
 const SECTION_LABEL: Record<string, string> = { simple: 'معنی ساده', words: 'واژه‌ها', structure: 'ساختار جمله', grammar: 'دستور زبان', devices: 'آرایه‌ها', deeper: 'برداشت عمیق‌تر' };
@@ -11,6 +12,7 @@ const SECTION_LABEL: Record<string, string> = { simple: 'معنی ساده', wor
 export function AiSettingsCard() {
   const ai = useQuery(getAiSettings, []);
   const reports = useQuery(() => withDb((d) => d.getAll('reports')), []);
+  const poems = useQuery(allPoems, []);
   const reportsSheet = useOverlay('reports');
   const toast = useToast();
   const [draft, setDraft] = useState('');
@@ -27,7 +29,12 @@ export function AiSettingsCard() {
   const saveKey = async () => {
     const key = draft.trim();
     if (!key) return;
-    await setAiSettings({ apiKey: key });
+    try {
+      await setAiSettings({ apiKey: key });
+    } catch {
+      toast({ text: 'ذخیرهٔ کلید ممکن نشد. دوباره امتحان کنید.' });
+      return;
+    }
     setDraft('');
     setShow(false);
     toast({ text: 'کلید روی این دستگاه ذخیره شد' });
@@ -66,7 +73,7 @@ export function AiSettingsCard() {
         </div>
       ) : (
         <form className="space-y-3" onSubmit={(e) => { e.preventDefault(); void saveKey(); }}>
-          <label htmlFor="api-key" className="text-xs font-bold text-green block">کلید API شما از console.anthropic.com</label>
+          <label htmlFor="api-key" className="text-xs font-bold text-green block">کلید API شما از <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener noreferrer" dir="ltr" className="underline underline-offset-4">console.anthropic.com</a></label>
           <div className="relative">
             <input
               id="api-key"
@@ -88,7 +95,7 @@ export function AiSettingsCard() {
           <button type="submit" disabled={!draft.trim()} className="w-full bg-green text-on-green py-3 rounded-xl font-medium disabled:opacity-50">ذخیرهٔ کلید روی این دستگاه</button>
         </form>
       )}
-      <p className="text-[11px] text-muted leading-relaxed mt-3">
+      <p className="text-xs text-muted leading-relaxed mt-3">
         کلید فقط در حافظهٔ همین مرورگر می‌ماند، فقط به api.anthropic.com فرستاده می‌شود و در فایل پشتیبان نمی‌آید. برای امنیت بیشتر، در کنسول Anthropic برای این کلید سقف هزینهٔ ماهانه بگذارید.
       </p>
 
@@ -100,7 +107,7 @@ export function AiSettingsCard() {
               <input type="radio" name="model" checked={s.model === m.id} onChange={() => void setAiSettings({ model: m.id })} className="mt-1 accent-[var(--color-green)]" />
               <span>
                 <span className="block text-sm" dir="ltr">{m.label}</span>
-                <span className="block text-[11px] text-muted">{m.note}</span>
+                <span className="block text-xs text-muted">{m.note}</span>
               </span>
             </label>
           ))}
@@ -112,12 +119,12 @@ export function AiSettingsCard() {
         <select id="daily-cap" value={s.dailyCap} onChange={(e) => void setAiSettings({ dailyCap: Number(e.target.value) })} className="w-full bg-paper border border-line rounded-xl py-3 px-4 text-sm">
           {DAILY_CAPS.map((c) => <option key={c} value={c}>{faNum(c)} درخواست در روز</option>)}
         </select>
-        <p className="text-[11px] text-muted mt-2">هر بخش توضیح، هر پیام گفت‌وگو و هر ثبت برداشت یک درخواست است. باز کردن دوبارهٔ توضیح ذخیره‌شده درخواست حساب نمی‌شود.</p>
+        <p className="text-xs text-muted mt-2">هر بخش توضیح، هر پیام گفت‌وگو و هر ثبت برداشت یک درخواست است. باز کردن دوبارهٔ توضیح ذخیره‌شده درخواست حساب نمی‌شود.</p>
       </div>
 
       <button type="button" onClick={reportsSheet.show} className="w-full text-right mt-6 py-3 px-4 rounded-xl border border-line text-sm flex items-center justify-between">
         <span>گزارش‌های اشکال ثبت‌شده ({faNum(reports.status === 'ready' ? reports.value.length : 0)})</span>
-        <Icon name="chevron-left" className="text-[10px] text-muted" />
+        <Icon name="chevron-left" className="text-xs text-muted" />
       </button>
 
       <Sheet open={reportsSheet.open} onClose={reportsSheet.hide} title="گزارش‌های اشکال">
@@ -125,7 +132,10 @@ export function AiSettingsCard() {
         <ul className="space-y-4">
           {reports.status === 'ready' && [...reports.value].sort((a, b) => b.createdAt - a.createdAt).map((r) => (
             <li key={r.id} className="text-sm border-b border-line/50 pb-3">
-              <p className="text-xs text-muted">{r.poemId} · بیت {faNum(r.n)} · {SECTION_LABEL[r.section]} · {faAgo(r.createdAt)}</p>
+              <p className="text-xs text-muted">
+                <Link to={`/poem/${r.poemId}/v/${r.n}`} className="text-green underline underline-offset-4">{(poems.status === 'ready' && poems.value.find((p) => p.id === r.poemId)?.title) || 'شعر'} · بیت {faNum(r.n)}</Link>
+                {' '}· {SECTION_LABEL[r.section]} · {faAgo(r.createdAt)}
+              </p>
               <p className="mt-1">{r.message || 'بدون توضیح'}</p>
               <button type="button" className="text-xs text-danger mt-1 py-1" onClick={async () => { await deleteRelaxed('reports', r.id); notifyChange(); }}>حذف این گزارش</button>
             </li>

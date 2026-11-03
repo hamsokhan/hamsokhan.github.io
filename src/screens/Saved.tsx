@@ -1,104 +1,199 @@
-import { useNavigate, useSearchParams } from 'react-router';
-import { BottomNav, Icon, LoadError, Spinner, useToast } from '../components/ui';
-import { faAgo } from '../lib/format';
-import { savedLists, setPoemSaved, setVerseSaved, useQuery } from '../lib/store';
+import type { ReactNode } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router';
+import { BottomNav, Icon, IconButton, LoadError, Spinner, useToast } from '../components/ui';
+import type { Section } from '../../shared/contract';
+import { faAgo, faNum } from '../lib/format';
+import { conversationList, deleteAnalyses, deleteConversation, deleteReflection, explainedList, putConversation, putReflection, reflectionList, restoreAnalyses, savedLists, setPoemSaved, setVerseSaved, useQuery } from '../lib/store';
 
-export default function Saved() {
-  const [params, setParams] = useSearchParams();
-  const tab = params.get('tab') === 'poems' ? 'poems' : 'verses';
-  const lists = useQuery(savedLists, []);
-  const navigate = useNavigate();
-  const toast = useToast();
+const TABS = [
+  { id: 'verses', label: 'بیت‌ها' },
+  { id: 'poems', label: 'شعرها' },
+  { id: 'explained', label: 'توضیح‌ها' },
+  { id: 'chats', label: 'گفت‌وگوها' },
+  { id: 'reflections', label: 'برداشت‌ها' },
+] as const;
+type Tab = (typeof TABS)[number]['id'];
 
-  const tabBtn = (id: 'verses' | 'poems', label: string) => (
-    <button
-      type="button"
-      role="tab"
-      aria-selected={tab === id}
-      onClick={() => setParams(id === 'poems' ? { tab: 'poems' } : {}, { replace: true })}
-      className={`flex-1 p-3 text-center text-sm font-bold border-b-2 transition-all ${tab === id ? 'text-green border-green' : 'text-muted border-transparent'}`}
-    >
-      {label}
-    </button>
+const EMPTY: Record<Tab, { title: string; text: string }> = {
+  verses: { title: 'هنوز بیتی ذخیره نکرده‌اید', text: 'در شعرخوان یک بیت را انتخاب کنید و نشان ذخیره را بزنید.' },
+  poems: { title: 'هنوز شعری ذخیره نکرده‌اید', text: 'نشان بالای هر شعر آن را اینجا نگه می‌دارد.' },
+  explained: { title: 'هنوز توضیحی نگرفته‌اید', text: 'هر توضیحی که بگیرید اینجا می‌ماند و بدون اینترنت هم باز می‌شود.' },
+  chats: { title: 'هنوز گفت‌وگویی ندارید', text: 'گفت‌وگوهای شما دربارهٔ هر بیت اینجا جمع می‌شوند.' },
+  reflections: { title: 'هنوز برداشتی ننوشته‌اید', text: 'برداشت‌هایی که دربارهٔ بیت‌ها می‌نویسید اینجا می‌مانند.' },
+};
+
+const SECTION_LABEL: Record<Section, string> = { simple: 'معنی ساده', words: 'واژه‌ها', structure: 'ساختار جمله', grammar: 'دستور زبان', devices: 'آرایه‌ها', deeper: 'برداشت عمیق‌تر' };
+
+/** One row of any list here: label and remove button on top, the openable content below. */
+function Card({ label, removeLabel, onRemove, onOpen, children }: { label: string; removeLabel: string; onRemove: () => void; onOpen: () => void; children: ReactNode }) {
+  return (
+    <li className="bg-card border border-line rounded-[1.25rem] p-5 mb-4">
+      <div className="flex justify-between items-center gap-2 mb-2">
+        <span className="text-xs text-muted">{label}</span>
+        <IconButton icon="xmark" label={removeLabel} className="text-muted -m-2" onClick={onRemove} />
+      </div>
+      <button type="button" className="text-right w-full" onClick={onOpen}>{children}</button>
+    </li>
   );
+}
 
-  const empty = (
-    <div className="py-20 text-center">
+function Stamp({ at, badge }: { at: number; badge?: string | null }) {
+  return (
+    <span className="flex items-center justify-between gap-2">
+      {badge ? <span className="text-xs text-green bg-green/5 px-2 py-0.5 rounded">{badge}</span> : <span />}
+      <span className="text-xs text-muted">{faAgo(at)}</span>
+    </span>
+  );
+}
+
+function Empty({ tab }: { tab: Tab }) {
+  return (
+    <div className="py-16 text-center">
       <div className="w-16 h-16 bg-green/5 rounded-full flex items-center justify-center text-line mx-auto mb-6">
         <Icon name="bookmark" style="regular" className="text-3xl" />
       </div>
-      <h3 className="text-base font-bold text-green mb-2">هنوز چیزی ذخیره نکرده‌اید</h3>
-      <p className="text-xs text-muted max-w-[220px] mx-auto leading-relaxed">بیت‌ها و شعرهایی که دوست دارید را برای دسترسی بعدی ذخیره کنید.</p>
+      <h3 className="text-base font-bold text-green mb-2">{EMPTY[tab].title}</h3>
+      <p className="text-xs text-muted max-w-[240px] mx-auto leading-relaxed mb-5">{EMPTY[tab].text}</p>
+      <Link to="/library" className="inline-block bg-green text-on-green px-6 py-3 rounded-xl text-sm font-medium">رفتن به کتابخانه</Link>
+      <p className="text-xs text-muted leading-relaxed mt-8">این داده‌ها فقط روی همین دستگاه نگهداری می‌شوند و بدون اینترنت هم در دسترس‌اند؛ همگام‌سازی بین دستگاه‌ها وجود ندارد.</p>
     </div>
   );
+}
+
+export default function Saved() {
+  const [params, setParams] = useSearchParams();
+  const tab: Tab = TABS.find((t) => t.id === params.get('tab'))?.id ?? 'verses';
+  const lists = useQuery(savedLists, []);
+  const explained = useQuery(explainedList, []);
+  const chats = useQuery(conversationList, []);
+  const reflections = useQuery(reflectionList, []);
+  const navigate = useNavigate();
+  const toast = useToast();
+
+  /** Removes something and offers to put it back; every list here behaves the same way. */
+  const removeWithUndo = async (done: string, remove: () => Promise<void>, restore: () => Promise<void>) => {
+    try {
+      await remove();
+    } catch {
+      return toast({ text: 'برداشتن انجام نشد. دوباره امتحان کنید.' });
+    }
+    toast({ text: done, action: { label: 'واگرد', run: () => void restore().catch(() => toast({ text: 'واگرد انجام نشد.' })) } });
+  };
+
+  const current = { verses: lists, poems: lists, explained, chats, reflections }[tab];
 
   return (
     <div className="min-h-dvh pb-28">
       <header className="px-6 pt-6 pb-2 sticky top-0 bg-paper/95 backdrop-blur-sm z-20">
         <div className="max-w-3xl mx-auto">
-          <h1 className="text-xl font-bold text-green mb-2">ذخیره‌ها</h1>
-          <p className="text-[11px] text-muted mb-4">فقط روی همین دستگاه نگهداری می‌شوند و بدون اینترنت هم در دسترس‌اند؛ همگام‌سازی بین دستگاه‌ها وجود ندارد.</p>
-          <div className="flex border-b border-line" role="tablist">
-            {tabBtn('verses', 'بیت‌ها')}
-            {tabBtn('poems', 'شعرها')}
+          <h1 className="text-xl font-bold text-green mb-4">ذخیره‌ها</h1>
+          <div className="flex border-b border-line overflow-x-auto no-scrollbar" role="tablist">
+            {TABS.map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                role="tab"
+                aria-selected={tab === t.id}
+                onClick={() => setParams(t.id === 'verses' ? {} : { tab: t.id }, { replace: true })}
+                className={`flex-1 shrink-0 whitespace-nowrap px-2 py-3 text-center text-[13px] font-bold border-b-2 transition-all ${tab === t.id ? 'text-green border-green' : 'text-muted border-transparent'}`}
+              >
+                {t.label}
+              </button>
+            ))}
           </div>
         </div>
       </header>
 
       <main className="px-6 pt-6 max-w-3xl mx-auto" role="tabpanel">
-        {lists.status === 'loading' && <Spinner label="در حال بارگذاری…" />}
-        {lists.status === 'error' && <LoadError />}
-        {lists.status === 'ready' && tab === 'verses' && (lists.value.verses.length === 0 ? empty : (
+        {current.status === 'loading' && <Spinner label="در حال بارگذاری…" />}
+        {current.status === 'error' && <LoadError />}
+
+        {tab === 'verses' && lists.status === 'ready' && (lists.value.verses.length === 0 ? <Empty tab={tab} /> : (
           <ul>
             {lists.value.verses.map((s) => (
-              <li key={`${s.poem.id}#${s.n}`} className="bg-card border border-line rounded-[1.25rem] p-5 mb-4">
-                <div className="flex justify-between items-start mb-3">
-                  <span className="text-[10px] text-muted">{s.poem.poetName ?? 'شاعر نامشخص'} · {s.poem.title ?? 'بی‌عنوان'}</span>
-                  <button type="button" aria-label="برداشتن از ذخیره‌ها" className="text-muted -m-2 p-2" onClick={async () => {
-                    try {
-                      await setVerseSaved(s.poem.id, s.n, false);
-                    } catch {
-                      return toast({ text: 'برداشتن انجام نشد. دوباره امتحان کنید.' });
-                    }
-                    toast({ text: 'بیت از ذخیره‌ها برداشته شد', action: { label: 'واگرد', run: () => void setVerseSaved(s.poem.id, s.n, true, s.savedAt) } });
-                  }}>
-                    <Icon name="xmark" className="text-xs" />
-                  </button>
-                </div>
-                <button type="button" className="text-right w-full" onClick={() => navigate(`/poem/${s.poem.id}/v/${s.n}`)}>
-                  <p className="text-sm leading-relaxed mb-4 font-medium">{s.poem.verses[s.n - 1].misras.join(' / ')}</p>
-                  <span className="flex items-center justify-between">
-                    {s.hasAnalysis ? <span className="text-[10px] text-green bg-green/5 px-2 py-0.5 rounded">دارای توضیح</span> : <span />}
-                    <span className="text-[10px] text-muted">{faAgo(s.savedAt)}</span>
-                  </span>
-                </button>
-              </li>
+              <Card
+                key={`${s.poem.id}#${s.n}`}
+                label={`${s.poem.poetName ?? 'شاعر نامشخص'} · ${s.poem.title ?? 'بی‌عنوان'}`}
+                removeLabel="برداشتن از ذخیره‌ها"
+                onRemove={() => void removeWithUndo('بیت از ذخیره‌ها برداشته شد', () => setVerseSaved(s.poem.id, s.n, false), () => setVerseSaved(s.poem.id, s.n, true, s.savedAt))}
+                onOpen={() => navigate(`/poem/${s.poem.id}/v/${s.n}`)}
+              >
+                <p className="text-sm leading-relaxed mb-4 font-medium">{s.poem.verses[s.n - 1].misras.join(' / ')}</p>
+                <Stamp at={s.savedAt} badge={s.hasAnalysis ? 'دارای توضیح' : null} />
+              </Card>
             ))}
           </ul>
         ))}
-        {lists.status === 'ready' && tab === 'poems' && (lists.value.poems.length === 0 ? empty : (
+
+        {tab === 'poems' && lists.status === 'ready' && (lists.value.poems.length === 0 ? <Empty tab={tab} /> : (
           <ul>
             {lists.value.poems.map((s) => (
-              <li key={s.poem.id} className="bg-card border border-line rounded-[1.25rem] p-5 mb-4">
-                <div className="flex justify-between items-start mb-3">
-                  <span className="text-[10px] text-muted">{s.poem.poetName ?? 'شاعر نامشخص'}</span>
-                  <button type="button" aria-label="برداشتن از ذخیره‌ها" className="text-muted -m-2 p-2" onClick={async () => {
-                    try {
-                      await setPoemSaved(s.poem.id, false);
-                    } catch {
-                      return toast({ text: 'برداشتن انجام نشد. دوباره امتحان کنید.' });
-                    }
-                    toast({ text: 'شعر از ذخیره‌ها برداشته شد', action: { label: 'واگرد', run: () => void setPoemSaved(s.poem.id, true, s.savedAt) } });
-                  }}>
-                    <Icon name="xmark" className="text-xs" />
-                  </button>
-                </div>
-                <button type="button" className="text-right w-full" onClick={() => navigate(`/poem/${s.poem.id}`)}>
-                  <p className="text-base font-bold text-green mb-1">{s.poem.title ?? 'بی‌عنوان'}</p>
-                  <p className="text-sm leading-relaxed mb-4 line-clamp-1">{s.poem.verses[0].misras.join(' / ')}</p>
-                  <span className="block text-left text-[10px] text-muted">{faAgo(s.savedAt)}</span>
-                </button>
-              </li>
+              <Card
+                key={s.poem.id}
+                label={s.poem.poetName ?? 'شاعر نامشخص'}
+                removeLabel="برداشتن از ذخیره‌ها"
+                onRemove={() => void removeWithUndo('شعر از ذخیره‌ها برداشته شد', () => setPoemSaved(s.poem.id, false), () => setPoemSaved(s.poem.id, true, s.savedAt))}
+                onOpen={() => navigate(`/poem/${s.poem.id}`)}
+              >
+                <p className="text-base font-bold text-green mb-1">{s.poem.title ?? 'بی‌عنوان'}</p>
+                <p className="text-sm leading-relaxed mb-4">{s.poem.verses[0].misras.join(' / ')}</p>
+                <Stamp at={s.savedAt} />
+              </Card>
+            ))}
+          </ul>
+        ))}
+
+        {tab === 'explained' && explained.status === 'ready' && (explained.value.length === 0 ? <Empty tab={tab} /> : (
+          <ul>
+            {explained.value.map((e) => (
+              <Card
+                key={`${e.poem.id}#${e.n}`}
+                label={`${e.poem.poetName ?? 'شاعر نامشخص'} · ${e.poem.title ?? 'بی‌عنوان'} · بیت ${faNum(e.n)}`}
+                removeLabel="حذف توضیح‌های این بیت"
+                onRemove={() => void removeWithUndo('توضیح‌های این بیت حذف شد', () => deleteAnalyses(e.records), () => restoreAnalyses(e.records))}
+                onOpen={() => navigate(`/poem/${e.poem.id}/v/${e.n}`)}
+              >
+                <p className="text-sm leading-relaxed mb-3 font-medium">{e.poem.verses[e.n - 1].misras.join(' / ')}</p>
+                <p className="flex flex-wrap gap-1 mb-3">
+                  {e.sections.map((s) => <span key={s} className="text-xs text-green bg-green/5 px-2 py-0.5 rounded">{SECTION_LABEL[s]}</span>)}
+                </p>
+                <Stamp at={e.updatedAt} />
+              </Card>
+            ))}
+          </ul>
+        ))}
+
+        {tab === 'chats' && chats.status === 'ready' && (chats.value.length === 0 ? <Empty tab={tab} /> : (
+          <ul>
+            {chats.value.map(({ poem, record }) => (
+              <Card
+                key={record.key}
+                label={`${poem.poetName ?? 'شاعر نامشخص'} · ${poem.title ?? 'بی‌عنوان'} · بیت ${faNum(record.n)}`}
+                removeLabel="پاک‌کردن این گفت‌وگو"
+                onRemove={() => void removeWithUndo('این گفت‌وگو پاک شد', () => deleteConversation(record.key), () => putConversation(record))}
+                onOpen={() => navigate(`/poem/${poem.id}/v/${record.n}/chat`)}
+              >
+                <p className="text-sm leading-relaxed mb-2 font-medium">{poem.verses[record.n - 1].misras.join(' / ')}</p>
+                <p className="text-sm text-muted leading-relaxed mb-3 line-clamp-2">{record.messages[record.messages.length - 1].text}</p>
+                <Stamp at={record.updatedAt} badge={`${faNum(record.messages.length)} پیام`} />
+              </Card>
+            ))}
+          </ul>
+        ))}
+
+        {tab === 'reflections' && reflections.status === 'ready' && (reflections.value.length === 0 ? <Empty tab={tab} /> : (
+          <ul>
+            {reflections.value.map(({ poem, record }) => (
+              <Card
+                key={record.id}
+                label={`${poem.poetName ?? 'شاعر نامشخص'} · ${poem.title ?? 'بی‌عنوان'} · بیت ${faNum(record.n)}`}
+                removeLabel="حذف این برداشت"
+                onRemove={() => void removeWithUndo('برداشت حذف شد', () => deleteReflection(record.id), () => putReflection(record))}
+                onOpen={() => navigate(`/poem/${poem.id}/v/${record.n}/reflect`)}
+              >
+                <p className="text-sm leading-relaxed mb-3 whitespace-pre-line">{record.text}</p>
+                <Stamp at={record.createdAt} badge={record.feedback ? 'دارای نظر هوشواره' : null} />
+              </Card>
             ))}
           </ul>
         ))}

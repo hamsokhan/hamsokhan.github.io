@@ -3,7 +3,7 @@ import { AiGateProvider } from './ai/useAi';
 import { ToastProvider } from './components/ui';
 import ChatScreen from './screens/Chat';
 import Discover from './screens/Discover';
-import ImportPoem from './screens/ImportPoem';
+import ImportPoem, { EditPoem } from './screens/ImportPoem';
 import Library from './screens/Library';
 import NotFound from './screens/NotFound';
 import PoemPage from './screens/PoemPage';
@@ -50,6 +50,7 @@ const router = createHashRouter([
       { path: '/import', element: <ImportPoem /> },
       { path: '/poet/:poetId', element: <PoetDetail /> },
       { path: '/poem/:poemId', element: <PoemPage /> },
+      { path: '/poem/:poemId/edit', element: <EditPoem /> },
       { path: '/poem/:poemId/v/:n', element: <PoemPage /> },
       { path: '/poem/:poemId/v/:n/chat', element: <ChatScreen /> },
       { path: '/poem/:poemId/v/:n/reflect', element: <ReflectScreen /> },

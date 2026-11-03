@@ -10,14 +10,23 @@ export interface DraftLine { text: string; startsVerse: boolean }
 const INLINE_SEP = /\s+(?:\/|\||\*{2,}|\t)\s+|\t+| {4,}/;
 
 export function draftFromText(input: string): DraftLine[] {
-  const lines: string[] = [];
+  const lines: DraftLine[] = [];
+  let inVerse = 2; // misras in the current verse; the next line starts a verse when it is full
   for (const raw of input.replace(/\r\n?/g, '\n').split('\n')) {
     const line = raw.trim();
     if (!line) continue;
     const parts = line.split(INLINE_SEP).map((p) => p.trim()).filter(Boolean);
-    lines.push(...(parts.length === 2 ? parts : [line]));
+    if (parts.length === 2) {
+      // A separator says these two misras are one verse, whatever came before them.
+      lines.push({ text: parts[0], startsVerse: true }, { text: parts[1], startsVerse: false });
+      inVerse = 2;
+    } else {
+      const starts = inVerse >= 2;
+      lines.push({ text: line, startsVerse: starts });
+      inVerse = starts ? 1 : inVerse + 1;
+    }
   }
-  return lines.map((text, i) => ({ text, startsVerse: i % 2 === 0 }));
+  return lines;
 }
 
 export function versesFromDraft(lines: DraftLine[]): Verse[] {

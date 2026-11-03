@@ -38,6 +38,7 @@
 
 :root {
   --font-scale: 1;
+  --reading-leading: 1.625;
   color-scheme: light;
 }
 
@@ -84,9 +85,14 @@ button:disabled {
 .misra {
   display: block;
   overflow-wrap: anywhere;
+  line-height: var(--reading-leading);
   /* Continuation lines of a long misra are indented so they read as one misra. */
   padding-inline-start: 1.25em;
   text-indent: -1.25em;
+}
+
+.reading {
+  line-height: var(--reading-leading);
 }
 
 @keyframes slide-up {

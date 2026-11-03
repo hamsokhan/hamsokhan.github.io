@@ -1,11 +1,12 @@
 import { useRef, useState } from 'react';
 import { getAiSettings, MOCK, type UsageTotals } from '../ai/client';
 import { AiSettingsCard } from '../components/AiSettings';
+import { ReadingControls } from '../components/ReadingControls';
 import { ErrorBox, Icon, IconButton, Sheet, useGoBack, useOverlay, useToast } from '../components/ui';
 import { exportBackup, mergeBackup, parseBackupFile, type Backup, type MergePlan } from '../lib/backup';
 import { getMeta } from '../lib/db';
 import { faAgo, faNum } from '../lib/format';
-import { FONT_SCALES, updateSettings, useSettings, type Theme } from '../lib/settings';
+import { updateSettings, useSettings, type Theme } from '../lib/settings';
 import { notifyChange, useQuery } from '../lib/store';
 
 const THEMES: { id: Theme; label: string }[] = [
@@ -24,7 +25,6 @@ export default function Settings() {
   const [pendingImport, setPendingImport] = useState<{ backup: Backup; plan: MergePlan } | { error: string } | null>(null);
   const usage = useQuery(() => getMeta<UsageTotals>('usage'), []);
   const ai = useQuery(getAiSettings, []);
-  const scaleIdx = Math.max(0, FONT_SCALES.indexOf(settings.fontScale as (typeof FONT_SCALES)[number]));
 
   const doExport = async () => {
     try {
@@ -64,33 +64,15 @@ export default function Settings() {
 
   return (
     <div className="min-h-dvh pb-12">
-      <header className="px-6 py-4 sticky top-0 bg-paper/95 backdrop-blur-sm z-20 flex items-center justify-between">
-        <IconButton icon="chevron-right" label="برگشت" onClick={() => goBack('/')} />
-        <h1 className="text-sm font-bold text-green">تنظیمات خواندن</h1>
+      <header className="px-4 py-4 sticky top-0 bg-paper/95 backdrop-blur-sm z-20 flex items-center justify-between">
+        <IconButton icon="arrow-right" label="برگشت" onClick={() => goBack('/')} />
+        <h1 className="text-sm font-bold text-green">تنظیمات</h1>
         <div className="w-11" />
       </header>
 
       <main className="px-6 pt-6 max-w-2xl mx-auto">
-        <section className="bg-card border border-line rounded-3xl p-6 mb-6" aria-labelledby="size-title">
-          <h2 id="size-title" className="text-xs font-bold text-muted mb-6 flex items-center gap-2"><Icon name="text-height" />اندازه متن</h2>
-          <div className="bg-paper p-6 rounded-xl text-center mb-6">
-            <p className="text-lg leading-relaxed text-green font-medium">بنی آدم اعضای یکدیگرند</p>
-          </div>
-          <div className="flex items-center gap-4 px-2">
-            <span className="text-xs" aria-hidden="true">ک</span>
-            <input
-              type="range"
-              min={0}
-              max={FONT_SCALES.length - 1}
-              step={1}
-              value={scaleIdx}
-              aria-label="اندازهٔ متن"
-              aria-valuetext={['کوچک', 'معمولی', 'بزرگ', 'بزرگ‌تر', 'خیلی بزرگ'][scaleIdx]}
-              onChange={(e) => updateSettings({ fontScale: FONT_SCALES[Number(e.target.value)] })}
-              className="flex-1 accent-[var(--color-green)] h-1"
-            />
-            <span className="text-lg" aria-hidden="true">ب</span>
-          </div>
+        <section className="bg-card border border-line rounded-3xl p-6 mb-6" aria-label="اندازه و فاصلهٔ متن">
+          <ReadingControls />
         </section>
 
         <section className="bg-card border border-line rounded-3xl p-6 mb-6" aria-labelledby="theme-title">
@@ -112,13 +94,13 @@ export default function Settings() {
             شعرها، ذخیره‌ها، توضیح‌ها و گفت‌وگوها فقط در حافظهٔ همین مرورگر نگهداری می‌شوند و بدون اینترنت در دسترس‌اند. همگام‌سازی بین دستگاه‌ها وجود ندارد؛ پاک‌کردن دادهٔ مرورگر آن‌ها را حذف می‌کند، پس گاهی خروجی پشتیبان بگیرید.
           </p>
           <div className="space-y-3">
-            <button type="button" onClick={() => fileRef.current?.click()} className="w-full text-right py-3 px-4 rounded-xl border border-line text-sm flex items-center justify-between">
-              <span>بازیابی ذخیره‌ها از فایل</span>
-              <Icon name="chevron-left" className="text-[10px] text-muted" />
-            </button>
             <button type="button" onClick={doExport} className="w-full text-right py-3 px-4 rounded-xl border border-line text-sm flex items-center justify-between">
               <span>خروجی از ذخیره‌ها (فایل JSON)</span>
-              <Icon name="chevron-left" className="text-[10px] text-muted" />
+              <Icon name="chevron-left" className="text-xs text-muted" />
+            </button>
+            <button type="button" onClick={() => fileRef.current?.click()} className="w-full text-right py-3 px-4 rounded-xl border border-line text-sm flex items-center justify-between">
+              <span>بازیابی ذخیره‌ها از فایل</span>
+              <Icon name="chevron-left" className="text-xs text-muted" />
             </button>
             <input ref={fileRef} type="file" accept="application/json,.json" className="hidden" onChange={(e) => void onFile(e.target.files?.[0])} />
           </div>
@@ -131,7 +113,7 @@ export default function Settings() {
             </div>
             <div>
               <h3 className="text-sm font-bold text-green mb-1">دربارهٔ توضیح‌های هوشواره</h3>
-              <p className="text-[11px] text-muted leading-relaxed">
+              <p className="text-xs text-muted leading-relaxed">
                 این توضیح‌ها را هوش مصنوعی می‌سازد و بازبینی انسانی نشده‌اند. متن اصلی شعر، توضیح هوشواره و برداشت شخصی شما همیشه جدا از هم نمایش داده می‌شوند.
               </p>
             </div>
@@ -140,7 +122,7 @@ export default function Settings() {
 
         <div className="mt-12 text-center">
           <a href="./fix.html" className="block text-xs text-muted underline underline-offset-4 mb-3">صفحهٔ تعمیر اپ (اگر گیر کرد یا به‌روز نشد)</a>
-          <p className="text-[10px] text-muted">هم‌سخن نسخه {faNum(__APP_VERSION__)} · ساخت <span dir="ltr">{__BUILD_ID__}</span></p>
+          <p className="text-xs text-muted">هم‌سخن نسخه {faNum(__APP_VERSION__)} · ساخت <span dir="ltr">{__BUILD_ID__}</span></p>
         </div>
       </main>
 

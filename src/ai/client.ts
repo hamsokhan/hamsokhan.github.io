@@ -145,6 +145,7 @@ export function requestAnalysis(p: Poem, n: number, section: Section): Promise<A
     if (!ExplainedSchema[section].safeParse(data).success) throw fail('invalid_output');
     const rec: AnalysisRecord = { key, poemId: p.id, textVersion: p.textVersion, n, section, data, model: out.model, promptVersion: PROMPT_VERSION, createdAt: Date.now(), demo: out.demo || undefined };
     await putRelaxed('analyses', rec);
+    notifyChange();
     return rec;
   })().finally(() => inflight.delete(key));
   inflight.set(key, run);

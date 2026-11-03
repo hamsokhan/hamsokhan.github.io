@@ -1,5 +1,5 @@
 import { Link, useParams } from 'react-router';
-import { Icon, IconButton, Sheet, useGoBack, useOverlay } from '../components/ui';
+import { BottomNav, Icon, IconButton, Sheet, useGoBack, useOverlay } from '../components/ui';
 import { LIBRARY, libraryPoem, poetById, sourceLine } from '../data/library';
 import NotFound from './NotFound';
 
@@ -11,11 +11,13 @@ export default function PoetDetail() {
   if (!poet) return <NotFound />;
   const poems = LIBRARY.filter((p) => p.poetId === poet.id);
   const starter = libraryPoem(poet.starterPoemId);
+  const others = poems.filter((p) => p.id !== starter?.id);
 
   return (
-    <div className="min-h-dvh pb-12">
-      <header className="px-6 py-4 sticky top-0 bg-paper/95 backdrop-blur-sm z-20 flex items-center justify-between">
+    <div className="min-h-dvh pb-28">
+      <header className="px-4 py-4 sticky top-0 bg-paper/95 backdrop-blur-sm z-20 flex items-center justify-between">
         <IconButton icon="arrow-right" label="برگشت" onClick={() => goBack('/')} />
+        <p className="text-sm font-bold text-green">{poet.name}</p>
         <div className="w-11" />
       </header>
 
@@ -47,17 +49,17 @@ export default function PoetDetail() {
         )}
 
         <section className="px-6">
-          <h2 className="text-sm font-bold text-muted mb-6 px-1">اشعار موجود</h2>
+          <h2 className="text-sm font-bold text-muted mb-6 px-1">شعرهای دیگر</h2>
           <ul className="space-y-2">
-            {poems.map((p) => (
+            {others.map((p) => (
               <li key={p.id}>
                 <Link to={`/poem/${p.id}`} className="bg-card p-5 rounded-2xl border border-line/30 flex items-center justify-between gap-3 hover:border-green/30 transition-colors group">
                   <div className="min-w-0">
                     <h3 className="text-base font-bold text-green mb-1">{p.title}</h3>
-                    <p className="text-xs text-muted line-clamp-1">{p.verses[0].misras[1]}…</p>
+                    <p className="text-xs text-muted">{p.verses[0].misras[0]}</p>
                   </div>
                   <div className="w-8 h-8 rounded-full bg-paper flex items-center justify-center text-line group-hover:bg-green group-hover:text-on-green transition-all shrink-0">
-                    <Icon name="chevron-left" className="text-[10px]" />
+                    <Icon name="chevron-left" className="text-xs" />
                   </div>
                 </Link>
               </li>
@@ -86,6 +88,7 @@ export default function PoetDetail() {
           ))}
         </ul>
       </Sheet>
+      <BottomNav />
     </div>
   );
 }

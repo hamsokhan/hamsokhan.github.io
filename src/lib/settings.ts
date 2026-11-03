@@ -3,11 +3,12 @@
 import { useSyncExternalStore } from 'react';
 
 export type Theme = 'light' | 'dark' | 'system';
-export interface Settings { theme: Theme; fontScale: number }
+export interface Settings { theme: Theme; fontScale: number; lineHeight: number; hintSeen: boolean }
 
 const KEY = 'hamsokhan.settings';
-const DEFAULTS: Settings = { theme: 'system', fontScale: 1 };
+const DEFAULTS: Settings = { theme: 'system', fontScale: 1, lineHeight: 1.625, hintSeen: false };
 export const FONT_SCALES = [0.9, 1, 1.12, 1.25, 1.4] as const;
+export const LINE_HEIGHTS = [1.45, 1.625, 1.9, 2.2] as const;
 
 function read(): Settings {
   try {
@@ -15,6 +16,8 @@ function read(): Settings {
     return {
       theme: ['light', 'dark', 'system'].includes(v?.theme) ? v.theme : DEFAULTS.theme,
       fontScale: FONT_SCALES.includes(v?.fontScale) ? v.fontScale : DEFAULTS.fontScale,
+      lineHeight: LINE_HEIGHTS.includes(v?.lineHeight) ? v.lineHeight : DEFAULTS.lineHeight,
+      hintSeen: v?.hintSeen === true,
     };
   } catch {
     return DEFAULTS;
@@ -29,6 +32,7 @@ export function applySettings(s = current) {
   const dark = s.theme === 'dark' || (s.theme === 'system' && media.matches);
   document.documentElement.dataset.theme = dark ? 'dark' : 'light';
   document.documentElement.style.setProperty('--font-scale', String(s.fontScale));
+  document.documentElement.style.setProperty('--reading-leading', String(s.lineHeight));
   document.querySelector('meta[name="theme-color"]')?.setAttribute('content', dark ? '#141a17' : '#F8F5EE');
 }
 media.addEventListener('change', () => applySettings());

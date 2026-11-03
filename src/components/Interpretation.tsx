@@ -3,7 +3,7 @@ import { Link } from 'react-router';
 import type { Explained } from '../../shared/anchor';
 import type { AnchorT, Section } from '../../shared/contract';
 import { saveReport } from '../ai/client';
-import { useSection, type SectionState } from '../ai/useAi';
+import { useSection } from '../ai/useAi';
 import type { Poem } from '../data/library';
 import type { AnalysisRecord } from '../lib/db';
 import { AiBadge, copyText, ErrorBox, Icon, Sheet, Spinner, useOverlay, useToast } from './ui';
@@ -20,7 +20,7 @@ const DETAIL: { id: Exclude<Section, 'simple'>; label: string; icon: string; sty
 const LABEL: Record<Section, string> = { simple: 'معنی ساده', words: 'واژه‌ها', structure: 'ساختار جمله', grammar: 'دستور زبان', devices: 'آرایه‌ها', deeper: 'برداشت عمیق‌تر' };
 
 /** The selected verse plus the layered explanation card (design 03). */
-export function Interpretation({ poem, n, autoRequest }: { poem: Poem; n: number; autoRequest?: boolean }) {
+export function Interpretation({ poem, n, autoRequest, onRequestUsed, verseAction }: { poem: Poem; n: number; autoRequest?: boolean; onRequestUsed?: () => void; verseAction?: ReactNode }) {
   const verse = poem.verses[n - 1];
   const simple = useSection(poem, n, 'simple');
   const [open, setOpen] = useState<Section | null>(null);
@@ -32,7 +32,9 @@ export function Interpretation({ poem, n, autoRequest }: { poem: Poem; n: number
     setOpen(null);
   }, [poem.id, n]);
   useEffect(() => {
-    if (autoRequest && simple.state.status === 'idle') void simple.request();
+    if (!autoRequest || simple.state.status === 'checking') return;
+    onRequestUsed?.();
+    if (simple.state.status === 'idle') void simple.request();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoRequest, simple.state.status]);
   useEffect(() => {
@@ -45,16 +47,19 @@ export function Interpretation({ poem, n, autoRequest }: { poem: Poem; n: number
   };
 
   return (
-    <div className="p-4 rounded-xl bg-selected border-r-[3px] border-green">
-      <VerseTokens misras={verse.misras} className="text-xl leading-relaxed text-green font-medium" annotated={focus.annotated} highlight={focus.highlight} onToken={focus.onToken} />
+    <div>
+      <div className="p-4 rounded-xl bg-selected border-r-[3px] border-green">
+        <VerseTokens misras={verse.misras} className="text-xl text-green font-medium" annotated={focus.annotated} highlight={focus.highlight} onToken={focus.onToken} />
+        {verseAction && <div className="flex justify-end -mb-2 -ml-2 text-muted">{verseAction}</div>}
+      </div>
 
-      <div className="bg-card border border-line rounded-3xl mt-6 overflow-hidden shadow-[0_4px_24px_rgba(33,77,59,0.06)]">
-        <div className="p-6">
+      <div className="bg-card border border-line rounded-3xl mt-4 overflow-hidden shadow-[0_4px_24px_rgba(33,77,59,0.06)]">
+        <div className="p-5">
           <h3 className="text-xs font-bold text-muted mb-3 flex items-center gap-2">
             <Icon name="quote-right" className="text-green" />
             معنی ساده
           </h3>
-          <SimpleBody poem={poem} state={simple.state} onRequest={simple.request} onReport={(rec) => onReport('simple', rec)} />
+          <SimpleBody poem={poem} section={simple} onReport={(rec) => onReport('simple', rec)} />
         </div>
 
         <div className="border-t border-line/30">
@@ -75,7 +80,10 @@ export function Interpretation({ poem, n, autoRequest }: { poem: Poem; n: number
   );
 }
 
-function SimpleBody({ poem, state, onRequest, onReport }: { poem: Poem; state: SectionState; onRequest: () => void; onReport: (rec: AnalysisRecord) => void }) {
+type SectionApi = ReturnType<typeof useSection>;
+
+function SimpleBody({ poem, section, onReport }: { poem: Poem; section: SectionApi; onReport: (rec: AnalysisRecord) => void }) {
+  const { state, request: onRequest } = section;
   if (state.status === 'checking') return <Spinner label="در حال بررسی توضیح‌های ذخیره‌شده…" />;
   if (state.status === 'idle')
     return (
@@ -92,7 +100,7 @@ function SimpleBody({ poem, state, onRequest, onReport }: { poem: Poem; state: S
   const d = state.rec.data as Explained['simple'];
   return (
     <div>
-      <p className="text-base leading-relaxed">{d.meaning}</p>
+      <p className="text-base reading">{d.meaning}</p>
       {d.feeling && <p className="text-sm text-muted leading-relaxed mt-3">{d.feeling}</p>}
       {d.unsure && <p className="text-xs text-muted mt-3">هوشواره دربارهٔ این معنی مطمئن نیست؛ آن را یک خوانش احتمالی بدانید.</p>}
       {poem.origin === 'user' && d.textNotes.length > 0 && (
@@ -101,24 +109,53 @@ function SimpleBody({ poem, state, onRequest, onReport }: { poem: Poem; state: S
           <ul className="list-disc pr-4 space-y-1 text-muted">{d.textNotes.map((t, i) => <li key={i}>{t}</li>)}</ul>
         </div>
       )}
-      <SectionFooter rec={state.rec} text={[d.meaning, d.feeling].filter(Boolean).join('\n')} onReport={() => onReport(state.rec)} />
+      <SectionFooter section={section} rec={state.rec} text={[d.meaning, d.feeling].filter(Boolean).join('\n')} onReport={() => onReport(state.rec)} />
     </div>
   );
 }
 
-function SectionFooter({ rec, text, onReport }: { rec: AnalysisRecord; text: string; onReport: () => void }) {
+function SectionFooter({ section, rec, text, onReport }: { section: SectionApi; rec: AnalysisRecord; text: string; onReport: () => void }) {
   const toast = useToast();
+  const [confirming, setConfirming] = useState(false);
+  const regenerate = async () => {
+    setConfirming(false);
+    const error = await section.regenerate();
+    if (error) toast({ text: `${error} توضیح قبلی سر جایش ماند.` });
+  };
+  const remove = async () => {
+    try {
+      const undo = await section.remove();
+      if (undo) toast({ text: 'این توضیح حذف شد', action: { label: 'واگرد', run: () => void undo().catch(() => toast({ text: 'واگرد انجام نشد.' })) } });
+    } catch {
+      toast({ text: 'حذف انجام نشد. دوباره امتحان کنید.' });
+    }
+  };
   return (
-    <div className="flex flex-wrap items-center justify-between gap-2 mt-5 pt-3 border-t border-line/40">
+    <div className="mt-5 pt-3 border-t border-line/40">
       <AiBadge demo={rec.demo} />
-      <div className="flex gap-4 text-xs text-muted">
+      <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-xs text-muted">
         <button type="button" className="py-2 hover:text-green" onClick={async () => toast({ text: (await copyText(text)) ? 'کپی شد' : 'کپی ممکن نشد' })}>
           <Icon name="copy" style="regular" className="ml-1" />کپی
         </button>
         <button type="button" className="py-2 hover:text-green" onClick={onReport}>
           <Icon name="flag" style="regular" className="ml-1" />گزارش اشکال
         </button>
+        <button type="button" aria-expanded={confirming} className="py-2 hover:text-green" onClick={() => setConfirming(!confirming)}>
+          <Icon name="rotate" className="ml-1" />ساخت دوباره
+        </button>
+        <button type="button" className="py-2 hover:text-green" onClick={() => void remove()}>
+          <Icon name="trash" className="ml-1" />حذف
+        </button>
       </div>
+      {confirming && (
+        <div className="mt-2 rounded-xl border border-line p-3 text-xs leading-relaxed">
+          <p className="mb-2">یک درخواست تازه فرستاده می‌شود و هزینه دارد. پاسخ تازه جای این توضیح را می‌گیرد.</p>
+          <div className="flex gap-5 font-bold text-green">
+            <button type="button" className="py-2 underline underline-offset-4" onClick={() => void regenerate()}>بساز</button>
+            <button type="button" className="py-2 underline underline-offset-4" onClick={() => setConfirming(false)}>انصراف</button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -128,7 +165,8 @@ type FocusSetter = (f: { annotated: (AnchorT | null)[]; highlight: AnchorT | nul
 function DetailRow({ poem, n, def, open, onToggle, setFocus, onReport }: {
   poem: Poem; n: number; def: (typeof DETAIL)[number]; open: boolean; onToggle: () => void; setFocus: FocusSetter; onReport: (s: Section, rec: AnalysisRecord) => void;
 }) {
-  const { state, request } = useSection(poem, n, def.id);
+  const section = useSection(poem, n, def.id);
+  const { state, request } = section;
   const panelId = `sec-${def.id}`;
   const toggle = () => {
     onToggle();
@@ -137,23 +175,23 @@ function DetailRow({ poem, n, def, open, onToggle, setFocus, onReport }: {
   };
   return (
     <div className="border-b border-paper last:border-b-0">
-      <button type="button" aria-expanded={open} aria-controls={panelId} onClick={toggle} className="w-full flex items-center justify-between px-6 py-4 hover:bg-paper transition-colors text-right">
+      <button type="button" aria-expanded={open} aria-controls={panelId} onClick={toggle} className="w-full flex items-center justify-between px-5 py-4 hover:bg-paper transition-colors text-right">
         <span className="flex items-center gap-3">
           <Icon name={def.icon} style={def.style} className="text-muted w-5 text-center" />
           <span className="text-sm font-medium">{def.label}</span>
-          {state.status === 'ready' && !open && <span className="text-[10px] text-green bg-green/5 px-2 py-0.5 rounded">آماده</span>}
+          {state.status === 'ready' && !open && <span className="text-xs text-green bg-green/5 px-2 py-0.5 rounded">آماده</span>}
         </span>
         <Icon name={open ? 'chevron-up' : 'chevron-down'} className="text-xs text-line" />
       </button>
       {open && (
-        <div id={panelId} className="px-6 pb-6">
+        <div id={panelId} className="px-5 pb-5">
           {state.status === 'checking' && <Spinner label="در حال بررسی…" />}
           {state.status === 'loading' && <Spinner label={`هوشواره در حال آماده‌کردن «${def.label}» است…`} />}
           {state.status === 'error' && <ErrorBox text={state.message} onRetry={request} settingsLink={state.needsKey} />}
           {state.status === 'idle' && (
             <button type="button" onClick={request} className="text-green font-bold underline underline-offset-4 py-2">دریافت توضیح «{def.label}»</button>
           )}
-          {state.status === 'ready' && <SectionBody section={def.id} rec={state.rec} setFocus={setFocus} onReport={() => onReport(def.id, state.rec)} />}
+          {state.status === 'ready' && <SectionBody section={def.id} api={section} rec={state.rec} setFocus={setFocus} onReport={() => onReport(def.id, state.rec)} />}
         </div>
       )}
     </div>
@@ -161,17 +199,17 @@ function DetailRow({ poem, n, def, open, onToggle, setFocus, onReport }: {
 }
 
 const Certainty = ({ certain }: { certain: boolean }) =>
-  certain ? null : <span className="text-[10px] text-muted border border-line rounded px-1 mr-1 whitespace-nowrap">محتمل</span>;
+  certain ? null : <span className="text-xs text-muted border border-line rounded px-1 mr-1 whitespace-nowrap">محتمل</span>;
 
 function Quote({ r, onClick, active }: { r: { quote: string; anchor: AnchorT | null }; onClick: () => void; active: boolean }) {
   return (
     <button type="button" onClick={onClick} aria-pressed={active} className={`font-bold text-green text-right ${active ? 'underline decoration-2 underline-offset-8' : ''}`} title={r.anchor ? 'نشان دادن در بیت' : 'جای دقیق این عبارت در بیت پیدا نشد'}>
-      «{r.quote}»{!r.anchor && <span className="text-[10px] font-normal text-muted mr-1">(جای دقیق نامعلوم)</span>}
+      «{r.quote}»{!r.anchor && <span className="text-xs font-normal text-muted mr-1">(جای دقیق نامعلوم)</span>}
     </button>
   );
 }
 
-function SectionBody({ section, rec, setFocus, onReport }: { section: Exclude<Section, 'simple'>; rec: AnalysisRecord; setFocus: FocusSetter; onReport: () => void }) {
+function SectionBody({ section, api, rec, setFocus, onReport }: { section: Exclude<Section, 'simple'>; api: SectionApi; rec: AnalysisRecord; setFocus: FocusSetter; onReport: () => void }) {
   const [active, setActive] = useState<number | null>(null);
   let body: ReactNode = null;
   let copy = '';
@@ -241,28 +279,21 @@ function SectionBody({ section, rec, setFocus, onReport }: { section: Exclude<Se
     copy = d.rows.map((r) => `${r.ref.quote} | ${r.type} | ${r.role} | ${r.why}`).join('\n');
     body = (
       <>
-        <div className="overflow-x-auto -mx-2">
-          <table className="w-full text-sm text-right min-w-[30rem]">
-            <thead className="text-xs text-muted">
-              <tr className="border-b border-line">
-                <th scope="col" className="py-2 px-2 font-medium">واژه یا گروه</th>
-                <th scope="col" className="py-2 px-2 font-medium">نوع</th>
-                <th scope="col" className="py-2 px-2 font-medium">نقش در جمله</th>
-                <th scope="col" className="py-2 px-2 font-medium">دلیل ساده</th>
-              </tr>
-            </thead>
-            <tbody>
-              {d.rows.map((r, i) => (
-                <tr key={i} className={`border-b border-line/50 align-top ${active === i ? 'bg-paper' : ''}`}>
-                  <td className="py-2 px-2"><Quote r={r.ref} active={active === i} onClick={() => pick(i)} /></td>
-                  <td className="py-2 px-2">{r.type}</td>
-                  <td className="py-2 px-2">{r.role}<Certainty certain={r.certain} /></td>
-                  <td className="py-2 px-2 text-muted text-xs leading-relaxed">{r.why}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <ul className="space-y-3">
+          {d.rows.map((r, i) => (
+            <li key={i} className={`text-sm leading-relaxed rounded-xl border border-line/50 p-3 ${active === i ? 'bg-paper' : ''}`}>
+              <Quote r={r.ref} active={active === i} onClick={() => pick(i)} />
+              <dl className="mt-2 grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1">
+                <dt className="text-xs text-muted pt-0.5">نوع</dt>
+                <dd>{r.type}</dd>
+                <dt className="text-xs text-muted pt-0.5">نقش در جمله</dt>
+                <dd>{r.role}<Certainty certain={r.certain} /></dd>
+                <dt className="text-xs text-muted pt-0.5">دلیل ساده</dt>
+                <dd className="text-muted">{r.why}</dd>
+              </dl>
+            </li>
+          ))}
+        </ul>
         {d.note && <p className="text-sm text-muted mt-3">{d.note}</p>}
       </>
     );
@@ -305,7 +336,7 @@ function SectionBody({ section, rec, setFocus, onReport }: { section: Exclude<Se
   return (
     <div>
       {body}
-      <SectionFooter rec={rec} text={copy} onReport={onReport} />
+      <SectionFooter section={api} rec={rec} text={copy} onReport={onReport} />
     </div>
   );
 }
@@ -335,7 +366,7 @@ function ReportSheet({ open, onClose, poem, n, target }: { open: boolean; onClos
     <Sheet open={open} onClose={onClose} title={`گزارش اشکال در «${LABEL[target.section]}»`}>
       <label htmlFor="report-text" className="text-xs font-bold text-green mb-2 block">چه چیزی نادرست یا گمراه‌کننده است؟ (اختیاری)</label>
       <textarea id="report-text" rows={4} maxLength={600} value={text} onChange={(e) => setText(e.target.value)} className="w-full bg-paper border border-line rounded-xl p-3 text-sm focus:outline-none focus:border-green resize-none" />
-      <p className="text-[11px] text-muted leading-relaxed mt-2">
+      <p className="text-xs text-muted leading-relaxed mt-2">
         گزارش همراه همین توضیح، شمارهٔ بیت و نام مدل فقط روی این دستگاه ثبت می‌شود و جایی فرستاده نمی‌شود. فهرست گزارش‌ها در «تنظیمات» است و در فایل پشتیبان هم می‌آید.
       </p>
       {typeof state === 'object' && <div className="mt-3"><ErrorBox text={state.error} /></div>}

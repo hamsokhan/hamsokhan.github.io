@@ -159,14 +159,14 @@ export async function withDb<T>(fn: (d: DB) => Promise<T>, ms = 8_000): Promise<
 }
 
 /** Small writes (saves, progress, cached explanations) don't need to wait for disk flush. */
-export async function putRelaxed<S extends 'savedPoems' | 'savedVerses' | 'progress' | 'analyses' | 'conversations' | 'meta' | 'reports'>(store: S, value: HamSokhanDB[S]['value']) {
+export async function putRelaxed<S extends 'savedPoems' | 'savedVerses' | 'progress' | 'analyses' | 'conversations' | 'reflections' | 'meta' | 'reports'>(store: S, value: HamSokhanDB[S]['value']) {
   await withDb(async (d) => {
     const tx = d.transaction(store, 'readwrite', { durability: 'relaxed' });
     await tx.store.put(value as never);
     await tx.done;
   });
 }
-export async function deleteRelaxed(store: 'savedPoems' | 'savedVerses' | 'reports', key: string) {
+export async function deleteRelaxed(store: 'savedPoems' | 'savedVerses' | 'analyses' | 'conversations' | 'reflections' | 'reports', key: string) {
   await withDb(async (d) => {
     const tx = d.transaction(store, 'readwrite', { durability: 'relaxed' });
     await tx.store.delete(key);

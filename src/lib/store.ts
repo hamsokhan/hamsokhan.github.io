@@ -1,9 +1,10 @@
 // Reads and writes over the local database, plus a tiny change signal so
 // screens re-read after a write (also across tabs).
 import { useEffect, useState } from 'react';
+import { PROMPT_VERSION, type Section } from '../../shared/contract';
 import { LIBRARY, libraryPoem, type Poem, type Verse } from '../data/library';
 import { versesFingerprint } from '../../shared/text';
-import { closeDb, deleteRelaxed, putRelaxed, userPoemToPoem, verseKey, withDb, type ProgressRecord } from './db';
+import { closeDb, deleteRelaxed, putRelaxed, userPoemToPoem, verseKey, withDb, type AnalysisRecord, type ConversationRecord, type ProgressRecord, type ReflectionRecord } from './db';
 
 const channel = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('hamsokhan-data') : null;
 const listeners = new Set<() => void>();
@@ -67,6 +68,22 @@ export async function addUserPoem(input: { title: string | null; poet: string | 
   await withDb((d) => d.put('userPoems', { id, ...input, textVersion: versesFingerprint(input.verses), createdAt: Date.now() }));
   notifyChange();
   return id;
+}
+
+/**
+ * Edits a pasted poem. Records tied to the old text stay on the device but are no
+ * longer shown, because they are matched by textVersion. `createdAt` moves forward
+ * because backup merging keeps whichever copy of a poem has the later value.
+ */
+export async function updateUserPoem(id: string, input: { title: string | null; poet: string | null; verses: Verse[] }) {
+  await withDb(async (d) => {
+    const tx = d.transaction('userPoems', 'readwrite');
+    const prev = await tx.store.get(id);
+    if (!prev) throw new Error('poem not found');
+    await tx.store.put({ ...prev, ...input, textVersion: versesFingerprint(input.verses), createdAt: Date.now() });
+    await tx.done;
+  });
+  notifyChange();
 }
 
 /** Deletes a pasted poem and everything attached to it (after the user confirmed). */
@@ -143,4 +160,110 @@ export async function lastRead(): Promise<{ poem: Poem; n: number } | null> {
     if (poem) return { poem, n: Math.min(p.n, poem.verses.length) };
   }
   return null;
+}
+
+// ---- What the reader has done with a poem, for the marks next to verses and poems ----
+
+const isCurrent = (a: AnalysisRecord, p: Poem) => a.textVersion === p.textVersion && a.promptVersion === PROMPT_VERSION;
+
+export interface VerseMarks { saved: boolean; explained: boolean; simple: boolean; chat: boolean }
+
+export async function poemMarks(poem: Poem): Promise<Record<number, VerseMarks>> {
+  const [saved, analyses, convos] = await withDb((d) => Promise.all([d.getAllFromIndex('savedVerses', 'byPoem', poem.id), d.getAll('analyses'), d.getAll('conversations')]));
+  const marks: Record<number, VerseMarks> = {};
+  const of = (n: number) => (marks[n] ??= { saved: false, explained: false, simple: false, chat: false });
+  for (const s of saved) of(s.n).saved = true;
+  for (const a of analyses) {
+    if (a.poemId !== poem.id || !isCurrent(a, poem)) continue;
+    of(a.n).explained = true;
+    if (a.section === 'simple') of(a.n).simple = true;
+  }
+  for (const c of convos) {
+    if (c.poemId === poem.id && c.textVersion === poem.textVersion && c.messages.length > 0) of(c.n).chat = true;
+  }
+  return marks;
+}
+
+export async function libraryMarks(): Promise<{ saved: Set<string>; progress: Map<string, number> }> {
+  const [saved, progress] = await withDb((d) => Promise.all([d.getAll('savedPoems'), d.getAll('progress')]));
+  return { saved: new Set(saved.map((s) => s.poemId)), progress: new Map(progress.map((p) => [p.poemId, p.n])) };
+}
+
+// ---- Explanations, conversations and reflections, for reviewing them in one place ----
+
+export interface ExplainedView { poem: Poem; n: number; sections: Section[]; records: AnalysisRecord[]; updatedAt: number }
+export interface ConversationView { poem: Poem; record: ConversationRecord }
+export interface ReflectionView { poem: Poem; record: ReflectionRecord }
+
+export async function explainedList(): Promise<ExplainedView[]> {
+  const all = await withDb((d) => d.getAll('analyses'));
+  const groups = new Map<string, ExplainedView>();
+  for (const a of all) {
+    const poem = await getPoem(a.poemId);
+    if (!poem || !poem.verses[a.n - 1] || !isCurrent(a, poem)) continue;
+    const key = verseKey(a.poemId, a.n);
+    const g = groups.get(key) ?? { poem, n: a.n, sections: [], records: [], updatedAt: 0 };
+    g.sections.push(a.section);
+    g.records.push(a);
+    g.updatedAt = Math.max(g.updatedAt, a.createdAt);
+    groups.set(key, g);
+  }
+  return [...groups.values()].sort((a, b) => b.updatedAt - a.updatedAt);
+}
+
+export async function deleteAnalyses(records: AnalysisRecord[]) {
+  await withDb(async (d) => {
+    const tx = d.transaction('analyses', 'readwrite');
+    await Promise.all(records.map((r) => tx.store.delete(r.key)));
+    await tx.done;
+  });
+  notifyChange();
+}
+export async function restoreAnalyses(records: AnalysisRecord[]) {
+  await withDb(async (d) => {
+    const tx = d.transaction('analyses', 'readwrite');
+    await Promise.all(records.map((r) => tx.store.put(r)));
+    await tx.done;
+  });
+  notifyChange();
+}
+
+export async function conversationList(): Promise<ConversationView[]> {
+  const all = await withDb((d) => d.getAll('conversations'));
+  const out: ConversationView[] = [];
+  for (const record of all) {
+    const poem = await getPoem(record.poemId);
+    if (poem && poem.verses[record.n - 1] && record.textVersion === poem.textVersion && record.messages.length > 0) out.push({ poem, record });
+  }
+  return out.sort((a, b) => b.record.updatedAt - a.record.updatedAt);
+}
+export async function deleteConversation(key: string) {
+  await deleteRelaxed('conversations', key);
+  notifyChange();
+}
+export async function putConversation(record: ConversationRecord) {
+  await putRelaxed('conversations', record);
+  notifyChange();
+}
+
+export async function reflectionList(): Promise<ReflectionView[]> {
+  const all = await withDb((d) => d.getAll('reflections'));
+  const out: ReflectionView[] = [];
+  for (const record of all) {
+    const poem = await getPoem(record.poemId);
+    if (poem && poem.verses[record.n - 1]) out.push({ poem, record });
+  }
+  return out.sort((a, b) => b.record.createdAt - a.record.createdAt);
+}
+export async function verseReflections(poemId: string, n: number): Promise<ReflectionRecord[]> {
+  const all = await withDb((d) => d.getAll('reflections'));
+  return all.filter((r) => r.poemId === poemId && r.n === n).sort((a, b) => b.createdAt - a.createdAt);
+}
+export async function putReflection(record: ReflectionRecord) {
+  await putRelaxed('reflections', record);
+  notifyChange();
+}
+export async function deleteReflection(id: string) {
+  await deleteRelaxed('reflections', id);
+  notifyChange();
 }
