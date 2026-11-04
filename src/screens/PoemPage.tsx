@@ -117,6 +117,9 @@ function ReaderHeader({ poem }: { poem: Poem }) {
   const display = useOverlay('display');
   const navigate = useNavigate();
   const location = useLocation();
+  const { n: explainedVerse } = useParams();
+  const [params] = useSearchParams();
+  const verseParam = explainedVerse ?? params.get('v');
   const toast = useToast();
   const [confirmDelete, setConfirmDelete] = useState(false);
   const text = poem.verses.map((v) => v.misras.join('\n')).join('\n\n');
@@ -174,6 +177,9 @@ function ReaderHeader({ poem }: { poem: Poem }) {
           <button type="button" className="py-3 text-right flex items-center gap-3" onClick={() => openFromMenu('display')}>
             <Icon name="text-height" className="text-muted w-5" />اندازه و فاصلهٔ متن
           </button>
+          <Link to={`/poem/${poem.id}/memorize${verseParam ? `?v=${verseParam}` : ''}`} replace className="py-3 text-right flex items-center gap-3">
+            <Icon name="brain" className="text-muted w-5" />از بر کردن{verseParam ? ' از همین بیت' : ''}
+          </Link>
           <button type="button" className="py-3 text-right flex items-center gap-3" onClick={() => openFromMenu('source')}>
             <Icon name="circle-info" className="text-muted w-5" />مشاهده منبع متن
           </button>
@@ -243,6 +249,7 @@ function VerseMarkIcons({ marks }: { marks?: VerseMarks }) {
     <>
       {marks.explained && <span title="دارای توضیح"><Icon name="wand-magic-sparkles" className="text-green" /><span className="sr-only">دارای توضیح</span></span>}
       {marks.saved && <span title="ذخیره‌شده"><Icon name="bookmark" className="text-green" /><span className="sr-only">ذخیره‌شده</span></span>}
+      {marks.memorized && <span title="از بر شده"><Icon name="brain" className="text-green" /><span className="sr-only">از بر شده</span></span>}
       {marks.chat && <span title="دارای گفت‌وگو"><Icon name="comments" style="regular" className="text-green" /><span className="sr-only">دارای گفت‌وگو</span></span>}
     </>
   );
@@ -252,6 +259,7 @@ function Reader({ poem, selected, marks, resumed, onSelect, onExplain, wide }: {
   const source = useOverlay('source');
   const { hintSeen } = useSettings();
   const refs = useRef<(HTMLDivElement | null)[]>([]);
+  const knownCount = Object.values(marks).filter((m) => m.memorized).length;
 
   // Bring the selected verse into view when arriving (e.g. "continue reading").
   useEffect(() => {
@@ -312,6 +320,12 @@ function Reader({ poem, selected, marks, resumed, onSelect, onExplain, wide }: {
       </div>
 
       <div className="mt-12 text-center">
+        <Link to={`/poem/${poem.id}/memorize`} className="inline-flex min-h-11 items-center justify-center gap-2 border border-green text-green rounded-2xl px-4 py-2 mb-4 text-sm font-medium leading-tight hover:bg-green hover:text-on-green transition-all">
+          <Icon name="brain" />
+          از بر کردن این شعر
+          {knownCount > 0 && <span className="text-xs">({faNum(knownCount)} از {faNum(poem.verses.length)})</span>}
+        </Link>
+        <br />
         <button type="button" onClick={source.show} className="text-xs text-muted underline underline-offset-4 decoration-line hover:text-green transition-colors py-2">
           مشاهده منبع متن
         </button>

@@ -2,13 +2,13 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { exportBackup, mergeBackup, parseBackupFile } from '../src/lib/backup';
 import { db } from '../src/lib/db';
 import { draftFromText, draftProblems, setVerseStart, versesFromDraft } from '../src/lib/importPoem';
-import { addUserPoem, conversationList, deleteAnalyses, deleteUserPoem, explainedList, getPoem, glossary, lastRead, libraryMarks, poemMarks, putConversation, putReflection, reflectionList, restoreAnalyses, savedLists, setPoemSaved, setProgress, setVerseSaved, updateUserPoem, verseReflections } from '../src/lib/store';
+import { addUserPoem, memorizedVerses, setVerseMemorized, conversationList, deleteAnalyses, deleteUserPoem, explainedList, getPoem, glossary, lastRead, libraryMarks, poemMarks, putConversation, putReflection, reflectionList, restoreAnalyses, savedLists, setPoemSaved, setProgress, setVerseSaved, updateUserPoem, verseReflections } from '../src/lib/store';
 import { PROMPT_VERSION } from '../shared/contract';
 import type { AnalysisRecord } from '../src/lib/db';
 
 async function wipe() {
   const d = await db();
-  for (const s of ['userPoems', 'savedPoems', 'savedVerses', 'analyses', 'progress', 'conversations', 'reflections', 'meta'] as const) await d.clear(s);
+  for (const s of ['userPoems', 'savedPoems', 'savedVerses', 'analyses', 'progress', 'conversations', 'reflections', 'meta', 'memorized'] as const) await d.clear(s);
 }
 const file = (text: string) => new File([text], 'b.json', { type: 'application/json' });
 
@@ -116,8 +116,8 @@ describe('reviewing and editing local data', () => {
     await restoreAnalyses([analysis(id, poem.textVersion, 2), analysis(id, poem.textVersion, 1, 'old-prompt')]);
     await putConversation({ key: `${id}#2`, poemId: id, textVersion: poem.textVersion, n: 2, messages: [{ role: 'user', text: 'x', at: 1 }], updatedAt: 1 });
     const marks = await poemMarks(poem);
-    expect(marks[1]).toEqual({ saved: true, explained: false, simple: false, chat: false });
-    expect(marks[2]).toEqual({ saved: false, explained: true, simple: true, chat: true });
+    expect(marks[1]).toEqual({ saved: true, explained: false, simple: false, chat: false, memorized: false });
+    expect(marks[2]).toEqual({ saved: false, explained: true, simple: true, chat: true, memorized: false });
   });
 
   it('groups explanations by verse and restores them after delete', async () => {
@@ -177,6 +177,34 @@ describe('reviewing and editing local data', () => {
     expect(await explainedList()).toEqual([]);
     const d = await db();
     expect(await d.getAll('analyses')).toHaveLength(1);
+  });
+
+  it('keeps memorised verses per text, in backups, and removes them with the poem', async () => {
+    const id = await addUserPoem({ title: null, poet: null, verses });
+    const poem = (await getPoem(id))!;
+    await setVerseMemorized(poem, 2, true);
+    expect([...(await memorizedVerses(poem))]).toEqual([2]);
+    expect((await poemMarks(poem))[2].memorized).toBe(true);
+
+    const backup = await exportBackup();
+    await setVerseMemorized(poem, 2, false);
+    expect((await memorizedVerses(poem)).size).toBe(0);
+    const parsed = await parseBackupFile(file(JSON.stringify(backup)));
+    expect(parsed.ok).toBe(true);
+    if (parsed.ok) await mergeBackup(parsed.backup, true);
+    expect([...(await memorizedVerses(poem))]).toEqual([2]);
+
+    await updateUserPoem(id, { title: null, poet: null, verses: [{ n: 1, misras: ['e', 'f'] }, { n: 2, misras: ['g', 'h'] }] });
+    expect((await memorizedVerses((await getPoem(id))!)).size).toBe(0); // a mark belongs to the text that was learned
+
+    await deleteUserPoem(id);
+    const d = await db();
+    expect(await d.getAll('memorized')).toEqual([]);
+  });
+
+  it('accepts an older backup that has no memorised verses', async () => {
+    const r = await parseBackupFile(file(JSON.stringify({ app: 'hamsokhan', schema: 2, exportedAt: '', data: { savedPoems: [{ poemId: 'hafez-ghazal-1', savedAt: 1 }] } })));
+    expect(r.ok && r.backup.data.memorized).toEqual([]);
   });
 
   it('reports saved poems and reached verses for the library list', async () => {
