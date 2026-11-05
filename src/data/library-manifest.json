@@ -5,10 +5,16 @@
     { "id": "saadi-ghazal-405", "poetId": "saadi", "title": "هزار جهد بکردم", "form": "غزل", "ganjoorPath": "/saadi/divan/ghazals/sh405" },
     { "id": "saadi-ghazal-51", "poetId": "saadi", "title": "آن نه زلف است و بناگوش", "form": "غزل", "ganjoorPath": "/saadi/divan/ghazals/sh51" },
     { "id": "saadi-mavaez-ghazal-13", "poetId": "saadi", "title": "به جهان خرم از آنم", "form": "غزل", "ganjoorPath": "/saadi/mavaez/ghazal2/sh13" },
+    { "id": "saadi-ghazal-63", "poetId": "saadi", "title": "از هرچه می‌رود", "form": "غزل", "ganjoorPath": "/saadi/divan/ghazals/sh63" },
+    { "id": "saadi-ghazal-268", "poetId": "saadi", "title": "ای ساربان آهسته رو", "form": "غزل", "ganjoorPath": "/saadi/divan/ghazals/sh268" },
+    { "id": "saadi-ghazal-14", "poetId": "saadi", "title": "امشب سبک‌تر می‌زنند", "form": "غزل", "ganjoorPath": "/saadi/divan/ghazals/sh14" },
     { "id": "hafez-ghazal-1", "poetId": "hafez", "title": "الا یا ایها الساقی", "form": "غزل", "ganjoorPath": "/hafez/ghazal/sh1" },
     { "id": "hafez-ghazal-4", "poetId": "hafez", "title": "صبا به لطف بگو", "form": "غزل", "ganjoorPath": "/hafez/ghazal/sh4" },
     { "id": "hafez-ghazal-143", "poetId": "hafez", "title": "سال‌ها دل طلب جام جم", "form": "غزل", "ganjoorPath": "/hafez/ghazal/sh143" },
     { "id": "hafez-ghazal-184", "poetId": "hafez", "title": "دوش دیدم که ملائک", "form": "غزل", "ganjoorPath": "/hafez/ghazal/sh184" },
-    { "id": "hafez-ghazal-255", "poetId": "hafez", "title": "یوسف گم‌گشته بازآید", "form": "غزل", "ganjoorPath": "/hafez/ghazal/sh255" }
+    { "id": "hafez-ghazal-255", "poetId": "hafez", "title": "یوسف گم‌گشته بازآید", "form": "غزل", "ganjoorPath": "/hafez/ghazal/sh255" },
+    { "id": "hafez-ghazal-3", "poetId": "hafez", "title": "اگر آن ترک شیرازی", "form": "غزل", "ganjoorPath": "/hafez/ghazal/sh3" },
+    { "id": "hafez-ghazal-5", "poetId": "hafez", "title": "دل می‌رود ز دستم", "form": "غزل", "ganjoorPath": "/hafez/ghazal/sh5" },
+    { "id": "hafez-ghazal-7", "poetId": "hafez", "title": "صوفی بیا که آینه", "form": "غزل", "ganjoorPath": "/hafez/ghazal/sh7" }
   ]
 }

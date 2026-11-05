@@ -1,5 +1,8 @@
 // Fetches the library poems from the Ganjoor API and writes src/data/library.json.
-// Usage: node scripts/fetch-ganjoor.mjs
+// Usage: node scripts/fetch-ganjoor.mjs            fetches only poems not yet in library.json
+//        node scripts/fetch-ganjoor.mjs --refresh  fetches every poem again
+// A refresh can change a poem's textVersion if Ganjoor edited its text, which hides
+// the explanations stored for it, so adding a poem must never touch the others.
 // Only the poem text is taken; Ganjoor's couplet summaries and comments are NOT
 // copied (they are contemporary commentary with their own rights).
 import { createHash } from 'node:crypto';
@@ -7,9 +10,16 @@ import { writeFileSync, readFileSync } from 'node:fs';
 
 const manifest = JSON.parse(readFileSync(new URL('../src/data/library-manifest.json', import.meta.url), 'utf8'));
 const Q = 'catInfo=false&rhymes=false&recitations=false&images=false&songs=false&comments=false&verseDetails=true&navigation=false&relatedpoems=false';
+const libraryUrl = new URL('../src/data/library.json', import.meta.url);
+const stored = process.argv.includes('--refresh') ? [] : JSON.parse(readFileSync(libraryUrl, 'utf8')).poems;
 
 const poems = [];
 for (const entry of manifest.poems) {
+  const existing = stored.find((p) => p.id === entry.id);
+  if (existing) {
+    poems.push(existing);
+    continue;
+  }
   const res = await fetch(`https://api.ganjoor.net/api/ganjoor/poem?url=${encodeURIComponent(entry.ganjoorPath)}&${Q}`);
   if (!res.ok) throw new Error(`${entry.ganjoorPath}: HTTP ${res.status}`);
   const data = await res.json();
@@ -52,4 +62,4 @@ for (const entry of manifest.poems) {
   console.log(`${entry.id}: ${verses.length} verses, ${textVersion}`);
 }
 
-writeFileSync(new URL('../src/data/library.json', import.meta.url), JSON.stringify({ generatedBy: 'scripts/fetch-ganjoor.mjs', poems }, null, 2) + '\n');
+writeFileSync(libraryUrl, JSON.stringify({ generatedBy: 'scripts/fetch-ganjoor.mjs', poems }, null, 2) + '\n');
