@@ -3,7 +3,7 @@
 // The API key is the user's own, kept on this device only (never in backups).
 import { anchorSection, ExplainedSchema, type Explained } from '../../shared/anchor';
 import { LIMITS, ModelOutput, PROMPT_VERSION, type ErrorCode, type ModelOutputs, type Section } from '../../shared/contract';
-import { CHAT_TASK, poemBlock, REFLECT_TASK, SECTION_TASK, type PoemContext } from '../../shared/prompts';
+import { CHAT_TASK, poemText, REFLECT_TASK, SECTION_TASK, selectedVerseText, type PoemContext } from '../../shared/prompts';
 import type { Poem } from '../data/library';
 import { getMeta, putRelaxed, setMeta, withDb, type AnalysisRecord } from '../lib/db';
 import { notifyChange } from '../lib/store';
@@ -57,7 +57,7 @@ const fail = (code: HooshvareError['code']) => new HooshvareError(code, MESSAGES
 
 // ---- Usage and the daily cap (counted on this device) ----
 
-export interface UsageTotals { requests: number; inputTokens: number; outputTokens: number; since: number; day?: string; dayRequests?: number }
+export interface UsageTotals { requests: number; inputTokens: number; outputTokens: number; cachedInputTokens?: number; since: number; day?: string; dayRequests?: number }
 const today = () => new Date(Date.now() + 3 * 3600_000).toISOString().slice(0, 10); // Asia/Baghdad day
 
 async function reserveCall(cap: number) {
@@ -68,12 +68,13 @@ async function reserveCall(cap: number) {
   u.requests++;
   await setMeta('usage', u);
 }
-async function recordTokens(usage: { inputTokens: number; outputTokens: number } | undefined) {
+async function recordTokens(usage: { inputTokens: number; outputTokens: number; cachedInputTokens?: number } | undefined) {
   if (!usage) return;
   const u = await getMeta<UsageTotals>('usage');
   if (!u) return;
   u.inputTokens += usage.inputTokens;
   u.outputTokens += usage.outputTokens;
+  u.cachedInputTokens = (u.cachedInputTokens ?? 0) + (usage.cachedInputTokens ?? 0);
   await setMeta('usage', u);
 }
 
@@ -89,7 +90,19 @@ function context(p: Poem): PoemContext {
   };
 }
 
-async function call<K extends keyof typeof ModelOutput>(kind: K, user: string, opts: { maxTokens: number; effort: 'low' | 'medium'; signal?: AbortSignal; mock: () => Promise<unknown> }) {
+/**
+ * The user turn in two parts: the whole poem first (the same for every verse,
+ * section and chat message of this poem, so the API can cache it), then the
+ * selected verse and the task. Joined, the text is exactly what the model saw
+ * before caching was added.
+ */
+export interface UserPrompt { poem: string; rest: string }
+export function buildPrompt(p: Poem, n: number, tail: string): UserPrompt {
+  const ctx = context(p);
+  return { poem: poemText(ctx), rest: `${selectedVerseText(ctx, n)}\n\n${tail}` };
+}
+
+async function call<K extends keyof typeof ModelOutput>(kind: K, user: UserPrompt, opts: { maxTokens: number; effort: 'low' | 'medium'; signal?: AbortSignal; mock: () => Promise<unknown> }) {
   const ai = await getAiSettings();
   if (!MOCK && !ai.apiKey) throw fail('no_key');
   if (!MOCK && !navigator.onLine) throw fail('offline');
@@ -135,7 +148,7 @@ export function requestAnalysis(p: Poem, n: number, section: Section): Promise<A
   if (existing) return existing;
   const run = (async () => {
     const misras = p.verses[n - 1].misras;
-    const user = `${poemBlock(context(p), n)}\n\n<task>\n${SECTION_TASK[section]}\n</task>`;
+    const user = buildPrompt(p, n, `<task>\n${SECTION_TASK[section]}\n</task>`);
     const out = await call(section, user, {
       maxTokens: section === 'simple' ? 2000 : 6000,
       effort: section === 'simple' ? 'low' : 'medium',
@@ -159,13 +172,13 @@ export type SectionData<S extends Section> = Explained[S];
 export async function sendChat(p: Poem, n: number, history: { role: 'user' | 'assistant'; text: string }[], message: string, signal: AbortSignal) {
   const tag = (r: string) => (r === 'user' ? 'reader' : 'hooshvare');
   const convo = history.slice(-LIMITS.maxHistory).map((m) => `<${tag(m.role)}>${m.text}</${tag(m.role)}>`).join('\n');
-  const user = `${poemBlock(context(p), n)}\n\n<conversation_so_far>\n${convo || '(none)'}\n</conversation_so_far>\n\n<reader_message>\n${message.slice(0, LIMITS.maxMessageChars)}\n</reader_message>\n\n<task>\n${CHAT_TASK}\n</task>`;
+  const user = buildPrompt(p, n, `<conversation_so_far>\n${convo || '(none)'}\n</conversation_so_far>\n\n<reader_message>\n${message.slice(0, LIMITS.maxMessageChars)}\n</reader_message>\n\n<task>\n${CHAT_TASK}\n</task>`);
   const out = await call('chat', user, { maxTokens: 2000, effort: 'low', signal, mock: async () => (await import('./mock')).mockChat(message, signal) });
   return { ...out.data, model: out.model, demo: out.demo };
 }
 
 export async function sendReflection(p: Poem, n: number, reflection: string, signal: AbortSignal) {
-  const user = `${poemBlock(context(p), n)}\n\n<reflection>\n${reflection.slice(0, LIMITS.maxReflectionChars)}\n</reflection>\n\n<task>\n${REFLECT_TASK}\n</task>`;
+  const user = buildPrompt(p, n, `<reflection>\n${reflection.slice(0, LIMITS.maxReflectionChars)}\n</reflection>\n\n<task>\n${REFLECT_TASK}\n</task>`);
   const out = await call('reflect', user, { maxTokens: 2000, effort: 'low', signal, mock: async () => (await import('./mock')).mockReflect(signal) });
   return { data: out.data, model: out.model, demo: out.demo };
 }
