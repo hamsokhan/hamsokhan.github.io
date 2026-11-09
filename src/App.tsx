@@ -1,17 +1,16 @@
+import type React from 'react';
 import { createHashRouter, Outlet, RouterProvider, ScrollRestoration } from 'react-router';
 import { AiGateProvider } from './ai/useAi';
 import { ToastProvider } from './components/ui';
-import ChatScreen from './screens/Chat';
+import { loadChunk } from './lib/chunks';
 import Discover from './screens/Discover';
-import ImportPoem, { EditPoem } from './screens/ImportPoem';
-import Library from './screens/Library';
-import NotFound from './screens/NotFound';
-import MemorizeScreen from './screens/Memorize';
-import PoemPage from './screens/PoemPage';
-import PoetDetail from './screens/PoetDetail';
-import ReflectScreen from './screens/Reflect';
-import Saved from './screens/Saved';
-import Settings from './screens/Settings';
+
+// Every screen except the home page is its own chunk, so the first paint parses
+// only what the home page needs. The service worker precaches all chunks, so
+// opening another screen offline still works.
+type Mod = { default: React.ComponentType };
+const page = (load: () => Promise<Mod>) => async () => ({ Component: (await loadChunk(load)).default });
+const editPoem = async () => ({ Component: (await loadChunk(() => import('./screens/ImportPoem'))).EditPoem });
 
 function Root() {
   return (
@@ -22,6 +21,10 @@ function Root() {
       </AiGateProvider>
     </ToastProvider>
   );
+}
+
+function RouteLoading() {
+  return <div className="min-h-dvh" aria-busy="true" />;
 }
 
 function CrashPage() {
@@ -43,20 +46,21 @@ const router = createHashRouter([
   {
     element: <Root />,
     errorElement: <CrashPage />,
+    hydrateFallbackElement: <RouteLoading />,
     children: [
       { path: '/', element: <Discover /> },
-      { path: '/library', element: <Library /> },
-      { path: '/saved', element: <Saved /> },
-      { path: '/settings', element: <Settings /> },
-      { path: '/import', element: <ImportPoem /> },
-      { path: '/poet/:poetId', element: <PoetDetail /> },
-      { path: '/poem/:poemId', element: <PoemPage /> },
-      { path: '/poem/:poemId/edit', element: <EditPoem /> },
-      { path: '/poem/:poemId/memorize', element: <MemorizeScreen /> },
-      { path: '/poem/:poemId/v/:n', element: <PoemPage /> },
-      { path: '/poem/:poemId/v/:n/chat', element: <ChatScreen /> },
-      { path: '/poem/:poemId/v/:n/reflect', element: <ReflectScreen /> },
-      { path: '*', element: <NotFound /> },
+      { path: '/library', lazy: page(() => import('./screens/Library')) },
+      { path: '/saved', lazy: page(() => import('./screens/Saved')) },
+      { path: '/settings', lazy: page(() => import('./screens/Settings')) },
+      { path: '/import', lazy: page(() => import('./screens/ImportPoem')) },
+      { path: '/poet/:poetId', lazy: page(() => import('./screens/PoetDetail')) },
+      { path: '/poem/:poemId', lazy: page(() => import('./screens/PoemPage')) },
+      { path: '/poem/:poemId/edit', lazy: editPoem },
+      { path: '/poem/:poemId/memorize', lazy: page(() => import('./screens/Memorize')) },
+      { path: '/poem/:poemId/v/:n', lazy: page(() => import('./screens/PoemPage')) },
+      { path: '/poem/:poemId/v/:n/chat', lazy: page(() => import('./screens/Chat')) },
+      { path: '/poem/:poemId/v/:n/reflect', lazy: page(() => import('./screens/Reflect')) },
+      { path: '*', lazy: page(() => import('./screens/NotFound')) },
     ],
   },
 ]);
