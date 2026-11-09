@@ -6,6 +6,7 @@ import Discover from './screens/Discover';
 import ImportPoem, { EditPoem } from './screens/ImportPoem';
 import Library from './screens/Library';
 import NotFound from './screens/NotFound';
+import MemorizeScreen from './screens/Memorize';
 import PoemPage from './screens/PoemPage';
 import PoetDetail from './screens/PoetDetail';
 import ReflectScreen from './screens/Reflect';
@@ -51,6 +52,7 @@ const router = createHashRouter([
       { path: '/poet/:poetId', element: <PoetDetail /> },
       { path: '/poem/:poemId', element: <PoemPage /> },
       { path: '/poem/:poemId/edit', element: <EditPoem /> },
+      { path: '/poem/:poemId/memorize', element: <MemorizeScreen /> },
       { path: '/poem/:poemId/v/:n', element: <PoemPage /> },
       { path: '/poem/:poemId/v/:n/chat', element: <ChatScreen /> },
       { path: '/poem/:poemId/v/:n/reflect', element: <ReflectScreen /> },

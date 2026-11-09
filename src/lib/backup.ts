@@ -6,8 +6,8 @@ import { z } from 'zod';
 import { STORES, withDb, type DataStore, type DB } from './db';
 
 export const BACKUP_APP = 'hamsokhan';
-// 2: adds `reports`. Schema-1 files are still accepted (missing stores default to empty).
-export const BACKUP_SCHEMA = 2;
+// 2: adds `reports`. 3: adds `memorized`. Older files are still accepted (missing stores default to empty).
+export const BACKUP_SCHEMA = 3;
 const MAX_BYTES = 20 * 1024 * 1024;
 
 const Verse = z.object({ n: z.number().int().min(1), misras: z.array(z.string().max(400)).min(1).max(2) });
@@ -27,6 +27,7 @@ const Rec = {
   }),
   reflections: z.object({ id: z.string(), poemId: z.string(), n: z.number().int(), text: z.string(), feedback: z.unknown().nullable(), createdAt: z.number() }),
   reports: z.object({ id: z.string(), poemId: z.string(), textVersion: z.string(), n: z.number().int(), section: z.enum(['simple', 'words', 'structure', 'grammar', 'devices', 'deeper']), model: z.string().nullable(), message: z.string(), analysis: z.unknown(), createdAt: z.number() }),
+  memorized: z.object({ key: z.string(), poemId: z.string(), textVersion: z.string(), n: z.number().int(), memorizedAt: z.number() }),
 } satisfies Record<DataStore, z.ZodType>;
 
 const BackupSchema = z.object({
@@ -38,10 +39,10 @@ const BackupSchema = z.object({
 export type Backup = z.infer<typeof BackupSchema>;
 
 const KEY: Record<DataStore, string> = {
-  userPoems: 'id', savedPoems: 'poemId', savedVerses: 'key', analyses: 'key', progress: 'poemId', conversations: 'key', reflections: 'id', reports: 'id',
+  userPoems: 'id', savedPoems: 'poemId', savedVerses: 'key', analyses: 'key', progress: 'poemId', conversations: 'key', reflections: 'id', reports: 'id', memorized: 'key',
 };
 const STAMP: Record<DataStore, string> = {
-  userPoems: 'createdAt', savedPoems: 'savedAt', savedVerses: 'savedAt', analyses: 'createdAt', progress: 'updatedAt', conversations: 'updatedAt', reflections: 'createdAt', reports: 'createdAt',
+  userPoems: 'createdAt', savedPoems: 'savedAt', savedVerses: 'savedAt', analyses: 'createdAt', progress: 'updatedAt', conversations: 'updatedAt', reflections: 'createdAt', reports: 'createdAt', memorized: 'memorizedAt',
 };
 
 export async function exportBackup(): Promise<Backup> {

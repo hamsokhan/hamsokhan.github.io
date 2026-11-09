@@ -49,6 +49,8 @@ export interface ReportRecord {
   analysis: unknown;
   createdAt: number;
 }
+/** A verse the reader says they know by heart. Tied to the text: editing a pasted poem hides it. */
+export interface MemorizedRecord { key: string; poemId: string; textVersion: string; n: number; memorizedAt: number }
 export interface MetaRecord { key: string; value: unknown }
 
 interface HamSokhanDB extends DBSchema {
@@ -60,11 +62,12 @@ interface HamSokhanDB extends DBSchema {
   conversations: { key: string; value: ConversationRecord };
   reflections: { key: string; value: ReflectionRecord };
   reports: { key: string; value: ReportRecord };
+  memorized: { key: string; value: MemorizedRecord };
   meta: { key: string; value: MetaRecord };
 }
 
 /** Stores included in backups. `meta` (API key, consent, usage) is deliberately not one of them. */
-export const STORES = ['userPoems', 'savedPoems', 'savedVerses', 'analyses', 'progress', 'conversations', 'reflections', 'reports'] as const;
+export const STORES = ['userPoems', 'savedPoems', 'savedVerses', 'analyses', 'progress', 'conversations', 'reflections', 'reports', 'memorized'] as const;
 export type DataStore = (typeof STORES)[number];
 
 let dbPromise: Promise<IDBPDatabase<HamSokhanDB>> | null = null;
@@ -87,7 +90,7 @@ function timeout<T>(p: Promise<T>, ms: number): Promise<T> {
 
 function open(): Promise<DB> {
   // Versioned, additive migrations: never drop a store that older data may live in.
-  const opening = openDB<HamSokhanDB>('hamsokhan', 2, {
+  const opening = openDB<HamSokhanDB>('hamsokhan', 3, {
     upgrade(d, oldVersion) {
       if (oldVersion < 1) {
         d.createObjectStore('userPoems', { keyPath: 'id' });
@@ -100,6 +103,7 @@ function open(): Promise<DB> {
         d.createObjectStore('meta', { keyPath: 'key' });
       }
       if (oldVersion < 2) d.createObjectStore('reports', { keyPath: 'id' });
+      if (oldVersion < 3) d.createObjectStore('memorized', { keyPath: 'key' });
     },
     blocked() {
       // Another copy holds an older version open; the open timeout below turns this into a clear error.
@@ -159,14 +163,14 @@ export async function withDb<T>(fn: (d: DB) => Promise<T>, ms = 8_000): Promise<
 }
 
 /** Small writes (saves, progress, cached explanations) don't need to wait for disk flush. */
-export async function putRelaxed<S extends 'savedPoems' | 'savedVerses' | 'progress' | 'analyses' | 'conversations' | 'reflections' | 'meta' | 'reports'>(store: S, value: HamSokhanDB[S]['value']) {
+export async function putRelaxed<S extends 'savedPoems' | 'savedVerses' | 'progress' | 'analyses' | 'conversations' | 'reflections' | 'meta' | 'reports' | 'memorized'>(store: S, value: HamSokhanDB[S]['value']) {
   await withDb(async (d) => {
     const tx = d.transaction(store, 'readwrite', { durability: 'relaxed' });
     await tx.store.put(value as never);
     await tx.done;
   });
 }
-export async function deleteRelaxed(store: 'savedPoems' | 'savedVerses' | 'analyses' | 'conversations' | 'reflections' | 'reports', key: string) {
+export async function deleteRelaxed(store: 'savedPoems' | 'savedVerses' | 'analyses' | 'conversations' | 'reflections' | 'reports' | 'memorized', key: string) {
   await withDb(async (d) => {
     const tx = d.transaction(store, 'readwrite', { durability: 'relaxed' });
     await tx.store.delete(key);

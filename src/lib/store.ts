@@ -5,7 +5,7 @@ import { ExplainedSchema } from '../../shared/anchor';
 import { PROMPT_VERSION, type Section } from '../../shared/contract';
 import { LIBRARY, libraryPoem, type Poem, type Verse } from '../data/library';
 import { searchKey, versesFingerprint } from '../../shared/text';
-import { closeDb, deleteRelaxed, putRelaxed, userPoemToPoem, verseKey, withDb, type AnalysisRecord, type ConversationRecord, type ProgressRecord, type ReflectionRecord } from './db';
+import { closeDb, deleteRelaxed, putRelaxed, userPoemToPoem, verseKey, withDb, type AnalysisRecord, type ConversationRecord, type MemorizedRecord, type ProgressRecord, type ReflectionRecord } from './db';
 
 const channel = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('hamsokhan-data') : null;
 const listeners = new Set<() => void>();
@@ -90,11 +90,11 @@ export async function updateUserPoem(id: string, input: { title: string | null; 
 /** Deletes a pasted poem and everything attached to it (after the user confirmed). */
 export async function deleteUserPoem(id: string) {
   await withDb(async (d) => {
-    const tx = d.transaction(['userPoems', 'savedPoems', 'savedVerses', 'analyses', 'progress', 'conversations', 'reflections', 'reports'], 'readwrite');
+    const tx = d.transaction(['userPoems', 'savedPoems', 'savedVerses', 'analyses', 'progress', 'conversations', 'reflections', 'reports', 'memorized'], 'readwrite');
     await tx.objectStore('userPoems').delete(id);
     await tx.objectStore('savedPoems').delete(id);
     await tx.objectStore('progress').delete(id);
-    for (const s of ['savedVerses', 'analyses', 'conversations', 'reflections', 'reports'] as const) {
+    for (const s of ['savedVerses', 'analyses', 'conversations', 'reflections', 'reports', 'memorized'] as const) {
       let cur = await tx.objectStore(s).openCursor();
       while (cur) {
         if (cur.value.poemId === id) await cur.delete();
@@ -163,17 +163,33 @@ export async function lastRead(): Promise<{ poem: Poem; n: number } | null> {
   return null;
 }
 
+// ---- Verses known by heart ----
+
+/** Verse numbers marked as memorised for the poem's current text. */
+const knownIn = (all: MemorizedRecord[], poem: Poem) =>
+  new Set(all.filter((m) => m.poemId === poem.id && m.textVersion === poem.textVersion && poem.verses[m.n - 1]).map((m) => m.n));
+export async function memorizedVerses(poem: Poem): Promise<Set<number>> {
+  return knownIn(await withDb((d) => d.getAll('memorized')), poem);
+}
+export async function setVerseMemorized(poem: Poem, n: number, known: boolean) {
+  const key = verseKey(poem.id, n);
+  if (known) await putRelaxed('memorized', { key, poemId: poem.id, textVersion: poem.textVersion, n, memorizedAt: Date.now() });
+  else await deleteRelaxed('memorized', key);
+  notifyChange();
+}
+
 // ---- What the reader has done with a poem, for the marks next to verses and poems ----
 
 const isCurrent = (a: AnalysisRecord, p: Poem) => a.textVersion === p.textVersion && a.promptVersion === PROMPT_VERSION;
 
-export interface VerseMarks { saved: boolean; explained: boolean; simple: boolean; chat: boolean }
+export interface VerseMarks { saved: boolean; explained: boolean; simple: boolean; chat: boolean; memorized: boolean }
 
 export async function poemMarks(poem: Poem): Promise<Record<number, VerseMarks>> {
-  const [saved, analyses, convos] = await withDb((d) => Promise.all([d.getAllFromIndex('savedVerses', 'byPoem', poem.id), d.getAll('analyses'), d.getAll('conversations')]));
+  const [saved, analyses, convos, known] = await withDb((d) => Promise.all([d.getAllFromIndex('savedVerses', 'byPoem', poem.id), d.getAll('analyses'), d.getAll('conversations'), d.getAll('memorized')]));
   const marks: Record<number, VerseMarks> = {};
-  const of = (n: number) => (marks[n] ??= { saved: false, explained: false, simple: false, chat: false });
+  const of = (n: number) => (marks[n] ??= { saved: false, explained: false, simple: false, chat: false, memorized: false });
   for (const s of saved) of(s.n).saved = true;
+  for (const n of knownIn(known, poem)) of(n).memorized = true;
   for (const a of analyses) {
     if (a.poemId !== poem.id || !isCurrent(a, poem)) continue;
     of(a.n).explained = true;
