@@ -29,9 +29,9 @@ Accuracy rules (these override everything else):
 Word references:
 - The selected verse is given with numbered tokens, e.g. «[0]بنی [1]آدم». When a field asks for a reference, give misra (0 = first misra, 1 = second), the first and last token index (inclusive) and the exact quoted words. A multi-word phrase spans several tokens. A repeated word must point to the occurrence you mean.`;
 
-export function poemBlock(ctx: PoemContext, verseNo: number): string {
+/** The whole poem; identical for every verse of the same poem, so it can be a cached prefix. */
+export function poemText(ctx: PoemContext): string {
   const lines = ctx.verses.map((m, i) => `${i + 1}. ${m.join(' / ')}`);
-  const selected = ctx.verses[verseNo - 1];
   return [
     `<poem>`,
     `title: ${ctx.title ?? 'نامشخص'}`,
@@ -40,11 +40,20 @@ export function poemBlock(ctx: PoemContext, verseNo: number): string {
     `verses:`,
     ...lines,
     `</poem>`,
-    ``,
+  ].join('\n');
+}
+
+export function selectedVerseText(ctx: PoemContext, verseNo: number): string {
+  const selected = ctx.verses[verseNo - 1];
+  return [
     `<selected_verse number="${verseNo}">`,
     ...selected.map((m, i) => `misra ${i}: ${indexedMisra(m)}`),
     `</selected_verse>`,
   ].join('\n');
+}
+
+export function poemBlock(ctx: PoemContext, verseNo: number): string {
+  return `${poemText(ctx)}\n\n${selectedVerseText(ctx, verseNo)}`;
 }
 
 export const SECTION_TASK: Record<Section, string> = {
