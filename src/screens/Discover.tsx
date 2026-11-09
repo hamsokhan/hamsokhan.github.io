@@ -1,10 +1,11 @@
 import { Link, useNavigate } from 'react-router';
 import { getAiSettings, MOCK } from '../ai/client';
 import garden from '../assets/garden.jpg';
-import { BottomNav, Icon, IconButton } from '../components/ui';
+import { BottomNav, copyText, Icon, IconButton, useToast } from '../components/ui';
 import { libraryPoem, POETS } from '../data/library';
 import { faNum } from '../lib/format';
 import { lastRead, useQuery } from '../lib/store';
+import { verseOfDay } from '../lib/verseOfDay';
 
 const SUGGESTIONS = [
   { poemId: 'saadi-golestan-1-10', icon: 'feather-pointed', title: 'چند بیت برای مکث و تأمل', text: 'سه بیت کوتاه از گلستان سعدی دربارهٔ پیوند آدم‌ها با یکدیگر؛ آغازی ساده برای خواندن بیت‌به‌بیت.' },
@@ -15,6 +16,10 @@ export default function Discover() {
   const navigate = useNavigate();
   const last = useQuery(lastRead, []);
   const ai = useQuery(getAiSettings, []);
+  const toast = useToast();
+  const day = verseOfDay();
+  // Once opened, the day's verse is already shown under "continue reading"; don't show it twice.
+  const today = day && !(last.status === 'ready' && last.value?.poem.id === day.poem.id && last.value.n === day.verse.n) ? day : null;
 
   return (
     <div className="min-h-dvh pb-28">
@@ -55,6 +60,35 @@ export default function Discover() {
                 ادامه شعر
                 <Icon name="arrow-left" className="text-sm" />
               </button>
+            </div>
+          </section>
+        )}
+
+        {today && (
+          <section className="px-6 mb-8" aria-labelledby="today-title">
+            <h2 id="today-title" className="text-lg font-bold text-green mb-3">بیت امروز</h2>
+            <div className="bg-card p-5 rounded-2xl border border-line/50">
+              <p className="text-lg font-medium mb-3">
+                {today.verse.misras.map((m, i) => <span key={i} className="misra">{m}</span>)}
+              </p>
+              <p className="text-xs text-muted mb-4">
+                {today.poem.poetName}، {today.poem.title ?? 'شعر بی‌عنوان'}، بیت {faNum(today.verse.n)}
+              </p>
+              <div className="flex items-center gap-2">
+                <Link to={`/poem/${today.poem.id}?v=${today.verse.n}`} className="flex-1 py-3 border border-green/40 text-green rounded-xl font-medium hover:bg-green/5 transition-colors flex items-center justify-center gap-2">
+                  خواندن در شعر
+                  <Icon name="arrow-left" className="text-sm" />
+                </Link>
+                <IconButton
+                  icon="copy"
+                  style="regular"
+                  label="کپی بیت امروز"
+                  onClick={async () => {
+                    const text = `${today.verse.misras.join('\n')}\n— ${today.poem.poetName}`;
+                    toast({ text: (await copyText(text)) ? 'بیت کپی شد' : 'کپی ممکن نشد' });
+                  }}
+                />
+              </div>
             </div>
           </section>
         )}
