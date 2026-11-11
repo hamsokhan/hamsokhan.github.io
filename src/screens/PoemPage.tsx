@@ -1,10 +1,12 @@
-import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router';
 import { Interpretation } from '../components/Interpretation';
 import { ReadingControls } from '../components/ReadingControls';
+import { RhymedMisra, RhymeLegend } from '../components/RhymeMarks';
 import { copyText, Icon, IconButton, LoadError, Sheet, Spinner, useGoBack, useOverlay, useToast } from '../components/ui';
 import type { Poem } from '../data/library';
 import { faNum, faOrdinal } from '../lib/format';
+import { rhymeScheme } from '../lib/rhyme';
 import { updateSettings, useSettings } from '../lib/settings';
 import { deleteUserPoem, getPoem, getProgress, isPoemSaved, isVerseSaved, poemMarks, setPoemSaved, setProgress, setVerseSaved, useQuery, type Loadable, type VerseMarks } from '../lib/store';
 import NotFound from './NotFound';
@@ -257,7 +259,9 @@ function VerseMarkIcons({ marks }: { marks?: VerseMarks }) {
 
 function Reader({ poem, selected, marks, resumed, onSelect, onExplain, wide }: { poem: Poem; selected: number | null; marks: Record<number, VerseMarks>; resumed: boolean; onSelect: (n: number) => void; onExplain: (n: number) => void; wide: boolean }) {
   const source = useOverlay('source');
-  const { hintSeen } = useSettings();
+  const { hintSeen, showRhyme } = useSettings();
+  const scheme = useMemo(() => rhymeScheme(poem.verses), [poem.verses]);
+  const rhymes = showRhyme ? scheme?.misras : undefined;
   const refs = useRef<(HTMLDivElement | null)[]>([]);
   const knownCount = Object.values(marks).filter((m) => m.memorized).length;
 
@@ -292,6 +296,7 @@ function Reader({ poem, selected, marks, resumed, onSelect, onExplain, wide }: {
         <p className="text-xs text-muted border border-line rounded-xl p-3 mb-6">متن واردشده توسط شما — منبع و انتساب بررسی نشده است.</p>
       )}
       {poem.note && <p className="text-xs text-muted mb-6 leading-relaxed">{poem.note}</p>}
+      {scheme && <RhymeLegend scheme={scheme} on={showRhyme} />}
 
       <div role="listbox" aria-label="بیت‌های شعر" className="space-y-6 @container">
         {poem.verses.map((v) => {
@@ -312,7 +317,7 @@ function Reader({ poem, selected, marks, resumed, onSelect, onExplain, wide }: {
                 <VerseMarkIcons marks={marks[v.n]} />
               </span>
               <div className={`flex flex-col gap-2 text-xl @[44rem]:grid @[44rem]:grid-cols-2 @[44rem]:gap-8 ${v.misras.length === 2 ? '@[44rem]:[&>*:last-child]:text-end' : ''}`}>
-                {v.misras.map((m, i) => <span key={i} className="misra">{m}</span>)}
+                {v.misras.map((m, i) => <RhymedMisra key={i} text={m} rhyme={rhymes?.get(`${v.n}:${i}`)} />)}
               </div>
             </div>
           );
