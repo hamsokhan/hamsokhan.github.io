@@ -11,6 +11,9 @@
     { "id": "saadi-ghazal-450", "poetId": "saadi", "title": "بگذار تا بگرییم", "form": "غزل", "ganjoorPath": "/saadi/divan/ghazals/sh450" },
     { "id": "saadi-ghazal-120", "poetId": "saadi", "title": "خبرت هست که بی روی تو", "form": "غزل", "ganjoorPath": "/saadi/divan/ghazals/sh120" },
     { "id": "saadi-mavaez-ghaside-25", "poetId": "saadi", "title": "در وصف بهار", "form": "قصیده", "ganjoorPath": "/saadi/mavaez/ghasides/sh25" },
+    { "id": "saadi-ghazal-1", "poetId": "saadi", "title": "اول دفتر به نام ایزد دانا", "form": "غزل", "ganjoorPath": "/saadi/divan/ghazals/sh1" },
+    { "id": "saadi-ghazal-2", "poetId": "saadi", "title": "ای نفس خرم باد صبا", "form": "غزل", "ganjoorPath": "/saadi/divan/ghazals/sh2" },
+    { "id": "saadi-ghazal-4", "poetId": "saadi", "title": "اگر تو فارغی از حال دوستان", "form": "غزل", "ganjoorPath": "/saadi/divan/ghazals/sh4" },
     { "id": "hafez-ghazal-1", "poetId": "hafez", "title": "الا یا ایها الساقی", "form": "غزل", "ganjoorPath": "/hafez/ghazal/sh1" },
     { "id": "hafez-ghazal-4", "poetId": "hafez", "title": "صبا به لطف بگو", "form": "غزل", "ganjoorPath": "/hafez/ghazal/sh4" },
     { "id": "hafez-ghazal-143", "poetId": "hafez", "title": "سال‌ها دل طلب جام جم", "form": "غزل", "ganjoorPath": "/hafez/ghazal/sh143" },
@@ -21,6 +24,9 @@
     { "id": "hafez-ghazal-7", "poetId": "hafez", "title": "صوفی بیا که آینه", "form": "غزل", "ganjoorPath": "/hafez/ghazal/sh7" },
     { "id": "hafez-ghazal-2", "poetId": "hafez", "title": "صلاح کار کجا", "form": "غزل", "ganjoorPath": "/hafez/ghazal/sh2" },
     { "id": "hafez-ghazal-8", "poetId": "hafez", "title": "ساقیا برخیز", "form": "غزل", "ganjoorPath": "/hafez/ghazal/sh8" },
-    { "id": "hafez-ghazal-10", "poetId": "hafez", "title": "دوش از مسجد سوی میخانه", "form": "غزل", "ganjoorPath": "/hafez/ghazal/sh10" }
+    { "id": "hafez-ghazal-10", "poetId": "hafez", "title": "دوش از مسجد سوی میخانه", "form": "غزل", "ganjoorPath": "/hafez/ghazal/sh10" },
+    { "id": "hafez-ghazal-6", "poetId": "hafez", "title": "به ملازمان سلطان", "form": "غزل", "ganjoorPath": "/hafez/ghazal/sh6" },
+    { "id": "hafez-ghazal-9", "poetId": "hafez", "title": "رونق عهد شباب است", "form": "غزل", "ganjoorPath": "/hafez/ghazal/sh9" },
+    { "id": "hafez-ghazal-11", "poetId": "hafez", "title": "ساقی به نور باده", "form": "غزل", "ganjoorPath": "/hafez/ghazal/sh11" }
   ]
 }
