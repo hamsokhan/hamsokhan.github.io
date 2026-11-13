@@ -30,6 +30,12 @@ const PUBLISHED_TEXT_VERSIONS = {
   'hafez-ghazal-2': '44753c43b9f1ca29',
   'hafez-ghazal-8': '6e41c39372f60c5c',
   'hafez-ghazal-10': 'aed5e1f3805c2191',
+  'saadi-ghazal-1': '87f26c65753045e7',
+  'saadi-ghazal-2': '1b4098f5487b163b',
+  'saadi-ghazal-4': 'b24105d214cee428',
+  'hafez-ghazal-6': '28a7f972b6de8666',
+  'hafez-ghazal-9': '2c1df37620e29e44',
+  'hafez-ghazal-11': 'cd2a95e30a396e39',
 };
 
 describe('searchKey', () => {
