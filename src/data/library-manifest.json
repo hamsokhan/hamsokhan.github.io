@@ -17,6 +17,9 @@
     { "id": "saadi-ghazal-3", "poetId": "saadi", "title": "روی تو خوش می‌نماید", "form": "غزل", "ganjoorPath": "/saadi/divan/ghazals/sh3" },
     { "id": "saadi-ghazal-5", "poetId": "saadi", "title": "شب فراق", "form": "غزل", "ganjoorPath": "/saadi/divan/ghazals/sh5" },
     { "id": "saadi-ghazal-6", "poetId": "saadi", "title": "پیش ما رسم شکستن نبود", "form": "غزل", "ganjoorPath": "/saadi/divan/ghazals/sh6" },
+    { "id": "saadi-ghazal-7", "poetId": "saadi", "title": "مشتاقی و صبوری", "form": "غزل", "ganjoorPath": "/saadi/divan/ghazals/sh7" },
+    { "id": "saadi-ghazal-8", "poetId": "saadi", "title": "ز اندازه بیرون تشنه‌ام", "form": "غزل", "ganjoorPath": "/saadi/divan/ghazals/sh8" },
+    { "id": "saadi-ghazal-9", "poetId": "saadi", "title": "گر ماه من برافکند", "form": "غزل", "ganjoorPath": "/saadi/divan/ghazals/sh9" },
     { "id": "hafez-ghazal-1", "poetId": "hafez", "title": "الا یا ایها الساقی", "form": "غزل", "ganjoorPath": "/hafez/ghazal/sh1" },
     { "id": "hafez-ghazal-4", "poetId": "hafez", "title": "صبا به لطف بگو", "form": "غزل", "ganjoorPath": "/hafez/ghazal/sh4" },
     { "id": "hafez-ghazal-143", "poetId": "hafez", "title": "سال‌ها دل طلب جام جم", "form": "غزل", "ganjoorPath": "/hafez/ghazal/sh143" },
@@ -33,6 +36,9 @@
     { "id": "hafez-ghazal-11", "poetId": "hafez", "title": "ساقی به نور باده", "form": "غزل", "ganjoorPath": "/hafez/ghazal/sh11" },
     { "id": "hafez-ghazal-12", "poetId": "hafez", "title": "ای فروغ ماه حسن", "form": "غزل", "ganjoorPath": "/hafez/ghazal/sh12" },
     { "id": "hafez-ghazal-13", "poetId": "hafez", "title": "می‌دمد صبح", "form": "غزل", "ganjoorPath": "/hafez/ghazal/sh13" },
-    { "id": "hafez-ghazal-14", "poetId": "hafez", "title": "گفتم ای سلطان خوبان", "form": "غزل", "ganjoorPath": "/hafez/ghazal/sh14" }
+    { "id": "hafez-ghazal-14", "poetId": "hafez", "title": "گفتم ای سلطان خوبان", "form": "غزل", "ganjoorPath": "/hafez/ghazal/sh14" },
+    { "id": "hafez-ghazal-15", "poetId": "hafez", "title": "ای شاهد قدسی", "form": "غزل", "ganjoorPath": "/hafez/ghazal/sh15" },
+    { "id": "hafez-ghazal-16", "poetId": "hafez", "title": "خمی که ابروی شوخ تو", "form": "غزل", "ganjoorPath": "/hafez/ghazal/sh16" },
+    { "id": "hafez-ghazal-17", "poetId": "hafez", "title": "سینه از آتش دل", "form": "غزل", "ganjoorPath": "/hafez/ghazal/sh17" }
   ]
 }
