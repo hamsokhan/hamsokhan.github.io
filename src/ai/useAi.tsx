@@ -4,7 +4,12 @@ import { Sheet } from '../components/ui';
 import type { Poem } from '../data/library';
 import { deleteRelaxed, putRelaxed, type AnalysisRecord } from '../lib/db';
 import { notifyChange } from '../lib/store';
-import { cachedAnalysis, errorMessage, HooshvareError, getAiSettings, giveConsent, hasConsent, MOCK, requestAnalysis } from './client';
+import { errorMessage, fail, HooshvareError, getAiSettings, giveConsent, hasConsent, MOCK } from './settings';
+
+// The request code (zod, prompts, anchoring) is fetched on first use, so the
+// home screen, which mounts this provider, does not download it. A page left
+// open across an update may find the old file gone: say so instead of «network».
+const loadClient = () => import('./client').catch(() => { throw fail('stale'); });
 
 // ---- One-time notice before the first request to the AI service ----
 
@@ -63,7 +68,7 @@ export function useSection(poem: Poem, n: number, section: Section) {
 
   useEffect(() => {
     setState({ status: 'checking' });
-    cachedAnalysis(poem, n, section).then(
+    loadClient().then((c) => c.cachedAnalysis(poem, n, section)).then(
       (rec) => current.current === key && setState(rec ? { status: 'ready', rec } : { status: 'idle' }),
       () => current.current === key && setState({ status: 'idle' }),
     );
@@ -75,7 +80,7 @@ export function useSection(poem: Poem, n: number, section: Section) {
     const mine = key;
     setState({ status: 'loading' });
     try {
-      const rec = await requestAnalysis(poem, n, section);
+      const rec = await (await loadClient()).requestAnalysis(poem, n, section);
       // A late answer for another poem/verse is stored but never shown here.
       if (current.current === mine) setState({ status: 'ready', rec });
     } catch (e) {
@@ -91,7 +96,7 @@ export function useSection(poem: Poem, n: number, section: Section) {
     const mine = key;
     setState({ status: 'loading' });
     try {
-      const rec = await requestAnalysis(poem, n, section);
+      const rec = await (await loadClient()).requestAnalysis(poem, n, section);
       if (current.current === mine) setState({ status: 'ready', rec });
       return null;
     } catch (e) {

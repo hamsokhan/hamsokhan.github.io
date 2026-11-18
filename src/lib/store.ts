@@ -1,8 +1,8 @@
 // Reads and writes over the local database, plus a tiny change signal so
 // screens re-read after a write (also across tabs).
 import { useEffect, useState } from 'react';
-import { ExplainedSchema } from '../../shared/anchor';
-import { PROMPT_VERSION, type Section } from '../../shared/contract';
+import type { Section } from '../../shared/contract';
+import { PROMPT_VERSION } from '../../shared/version';
 import { LIBRARY, libraryPoem, type Poem, type Verse } from '../data/library';
 import { searchKey, versesFingerprint } from '../../shared/text';
 import { closeDb, deleteRelaxed, putRelaxed, userPoemToPoem, verseKey, withDb, type AnalysisRecord, type ConversationRecord, type MemorizedRecord, type ProgressRecord, type ReflectionRecord } from './db';
@@ -237,6 +237,8 @@ export interface GlossaryEntry { word: string; uses: GlossaryUse[] }
  * meaning in each verse is the point: it is not a dictionary definition.
  */
 export async function glossary(): Promise<GlossaryEntry[]> {
+  // Loaded here, not at the top, so the home screen does not carry zod.
+  const { ExplainedSchema } = await import('../../shared/anchor');
   const all = await withDb((d) => d.getAll('analyses'));
   const entries = new Map<string, GlossaryEntry>();
   for (const a of all) {
