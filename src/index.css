@@ -1,8 +1,33 @@
 @import 'tailwindcss';
-@import 'vazirmatn/Vazirmatn-font-face.css';
 @import '@fortawesome/fontawesome-free/css/fontawesome.min.css';
 @import '@fortawesome/fontawesome-free/css/solid.min.css';
 @import '@fortawesome/fontawesome-free/css/regular.min.css';
+
+/* Only the Vazirmatn weights the app uses (Tailwind font-normal, font-medium,
+   font-bold, and bold headings). The package's full face sheet declared nine
+   weights, and the service worker precached all of them (~460KB). If a new
+   weight is used, add its face here; tests/font-weights.test.ts checks this. */
+@font-face {
+  font-family: Vazirmatn;
+  src: url('../node_modules/vazirmatn/fonts/webfonts/Vazirmatn-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: Vazirmatn;
+  src: url('../node_modules/vazirmatn/fonts/webfonts/Vazirmatn-Medium.woff2') format('woff2');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: Vazirmatn;
+  src: url('../node_modules/vazirmatn/fonts/webfonts/Vazirmatn-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
 
 @custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
 
