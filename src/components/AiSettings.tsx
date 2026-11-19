@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
-import { DAILY_CAPS, getAiSettings, MODELS, setAiSettings } from '../ai/client';
+import { DAILY_CAPS, getAiSettings, MODELS, setAiSettings } from '../ai/settings';
 import { deleteRelaxed, withDb } from '../lib/db';
 import { faAgo, faNum } from '../lib/format';
 import { allPoems, notifyChange, useQuery } from '../lib/store';

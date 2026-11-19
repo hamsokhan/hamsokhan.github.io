@@ -1,5 +1,5 @@
 import { Link, useNavigate } from 'react-router';
-import { getAiSettings, MOCK } from '../ai/client';
+import { getAiSettings, MOCK } from '../ai/settings';
 import garden from '../assets/garden.jpg';
 import { BottomNav, copyText, Icon, IconButton, useToast } from '../components/ui';
 import { libraryPoem, POETS } from '../data/library';

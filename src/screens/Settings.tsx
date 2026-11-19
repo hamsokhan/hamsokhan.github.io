@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { getAiSettings, MOCK, type UsageTotals } from '../ai/client';
+import { getAiSettings, MOCK, type UsageTotals } from '../ai/settings';
 import { AiSettingsCard } from '../components/AiSettings';
 import { ReadingControls } from '../components/ReadingControls';
 import { ErrorBox, Icon, IconButton, Sheet, useGoBack, useOverlay, useToast } from '../components/ui';

@@ -3,7 +3,7 @@
 // stored or displayed.
 import { z } from 'zod';
 
-export const PROMPT_VERSION = 'p1';
+export { PROMPT_VERSION } from './version';
 
 export const SECTIONS = ['simple', 'words', 'structure', 'grammar', 'devices', 'deeper'] as const;
 export type Section = (typeof SECTIONS)[number];
