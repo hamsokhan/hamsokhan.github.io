@@ -3,10 +3,10 @@
 import { useSyncExternalStore } from 'react';
 
 export type Theme = 'light' | 'dark' | 'system';
-export interface Settings { theme: Theme; fontScale: number; lineHeight: number; hintSeen: boolean }
+export interface Settings { theme: Theme; fontScale: number; lineHeight: number; hintSeen: boolean; showRhyme: boolean }
 
 const KEY = 'hamsokhan.settings';
-const DEFAULTS: Settings = { theme: 'system', fontScale: 1, lineHeight: 1.625, hintSeen: false };
+const DEFAULTS: Settings = { theme: 'system', fontScale: 1, lineHeight: 1.625, hintSeen: false, showRhyme: false };
 export const FONT_SCALES = [0.9, 1, 1.12, 1.25, 1.4] as const;
 export const LINE_HEIGHTS = [1.45, 1.625, 1.9, 2.2] as const;
 
@@ -18,6 +18,7 @@ function read(): Settings {
       fontScale: FONT_SCALES.includes(v?.fontScale) ? v.fontScale : DEFAULTS.fontScale,
       lineHeight: LINE_HEIGHTS.includes(v?.lineHeight) ? v.lineHeight : DEFAULTS.lineHeight,
       hintSeen: v?.hintSeen === true,
+      showRhyme: v?.showRhyme === true,
     };
   } catch {
     return DEFAULTS;
